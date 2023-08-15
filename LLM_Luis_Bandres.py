@@ -383,16 +383,16 @@ def get_python_code_prompt():
     try:
         map_process = extract_data_attributes(execution_chain)
         return f"""
-        Also, you will be provided with a intial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the intial_table to the same format than  template table.
+        Also, you will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the initial_table to the same format than  template table.
         Finally, you will be provided with a final_table in a markdown format as << FINAL_TABLE >>. The final_table is the expected result you need to achieve.
 
-        The objective is to create a python code for transforming the intial_table into final_table. You need to use the mapping from renaming columns of intial_table to making their headers the same than final_table.
+        The objective is to create a python code for transforming the initial_table into final_table. You need to use the mapping from renaming columns of initial_table to making their headers the same than final_table.
 
 
 
-        Please follow the steps for creating ETL pipeline in a python code:
+        Please follow the steps for creating a python code:
 
-        STEP 1: Read intial_table using pandas.
+        STEP 1: Read initial_table using pandas as a dataframe.
 
         STEP 2: Rename columns using HEADERS MAPPING.
         << HEADERS MAPPING >>
@@ -400,31 +400,29 @@ def get_python_code_prompt():
         {json.dumps(map_process['header_match'])}
         ```
         
-        STEP 3: In the next steps only consider the new names of the columns assigned in STEP 2.
+        STEP 3: In the following steps only consider the new headers of the columns assigned in STEP 2. Also discard other columns.
         
-        STEP 4: Transform the date columns of inital_table to the same date format than final_table.
+        STEP 4: Transform the date columns of inital_table to the same date format than final_table. Considers the previous steps.
 
-        STEP 5: Replace each value in the column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the "intial_table" with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
+        STEP 5: Replace each value in the column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
         << CATEGORIES REQUIRED >>>
         ```json
         {json.dumps(map_process['categories_match'])}
         ```
-        You need to implement in this step a code for calculating similarities between strings.
+        You need to implement in this step a code for calculating similarities between strings. Considers the previous steps.
 
-        STEP 6: Transform all the rows of string columns of initial_table so they have the same format than their corresponding columns in final table. Be sure that values in initial_table string columns have the same punctuation and spaces than their corresponding columns in final_table. For this use regex.
+        STEP 6: Transform all the rows of string columns of dataframe so they have the same format than their corresponding columns in final table. Be sure that values in dataframe string columns have the same punctuation and spaces than their corresponding columns in final_table. For this use regex. Considers the previous steps.
 
-        STEP 7: Transform values in numeric columns of inital_table have the same decimals separators and decimals quantity than their corresponding numeric columns in final_table. 
+        STEP 7: Transform values in numeric columns of inital_table have the same decimals separators and decimals quantity than their corresponding numeric columns in final_table. Considers the previous steps.
 
-        STEP 8: Remove all columns in transformed_table which headers are not present in the headers of final_table markdown provided. Important: final_table is provided in this prompt as a markdown table. Dont load the file in the python script.
-
-        STEP 9: Read all the code and be sure that all required libraries in the code are correctly imported
-
-        STEP 10: Format the final python script using PEP8 standar.
-
+        STEP 8: Read all the code and be sure that all required libraries in the code are correctly imported. Considers the previous steps.
+        
+        STEP 9: Save the dataframe as csv file called "transformed_table".
+        
         Remember the objective is to reproduce the final_table using python 3.9 or above.
-        The result table will be called as transformed_table.
+        
         CONSTRAINTS
-        a) Code will receive only intial_table as a csv file.
+        a) Code will receive only initial_table as a csv file.
         B) Avoid inplae parameters in pandas transformations
         c) The code need to save the transformed table as csv.
         d) Categorical columns must be filled (not completely empty).
@@ -612,7 +610,7 @@ bot_conversation = ConversationChain(
 def respond(message, chat_history, instruction, temperature=0.0):  
     global is_new_chat
     if is_new_chat:
-        memory.save_context({"input": get_python_code_prompt()}, {"output": python_text})
+        memory.save_context({"output": python_text})
         is_new_chat = False
     else:
         prompt = message
@@ -628,7 +626,7 @@ with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
             gr.HTML('<h1 align="center">Test Task Submission</h1>')
-            gr.HTML('<h3 align="center">Luis Bandres</h3>')
+            gr.HTML('<h2 align="center">Luis Bandres</h2>')
             gr.HTML('<p align="center">Add description here</p>')
     with gr.Row():
         with gr.Column():
@@ -645,9 +643,10 @@ with gr.Blocks() as demo:
 
         with gr.Column():
             # Analyse Data
-            gr.HTML('<h2 align="center">Step 3: Analysis </h2>')
-            gr.HTML('<p align="left">This process could take up to 5 minutes...</p>')
-            btn_analyse = gr.Button("Analyse Table")
+            gr.HTML('<h2 align="center">Step 3: Transform using LLM </h2>')
+            gr.HTML('<h3 align="left">Dont leave this page while processing.</h3>')
+            gr.HTML('<p align="left">This process could take 5 minutes approximately...</p>')
+            btn_analyse = gr.Button("Transform Table")
             data_proposal = gr.outputs.HTML(label="Data Mapping Result")
             chk_analysis = gr.Radio(["Yes", "No"], label="Data was mapped correctly?")
 
