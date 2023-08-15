@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import os
@@ -20,7 +20,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 
-# In[ ]:
+# In[2]:
 
 
 warnings.filterwarnings('ignore')
@@ -29,7 +29,7 @@ from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv()) # read local .env file
 
 
-# In[ ]:
+# In[3]:
 
 
 llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
@@ -39,7 +39,7 @@ llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
 # 
 # It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
 
-# In[ ]:
+# In[4]:
 
 
 load_template_file_prompt = ChatPromptTemplate.from_template("""
@@ -72,7 +72,7 @@ If there is not a markdown table in the input return an empty JSON object. Other
 """)
 
 
-# In[ ]:
+# In[5]:
 
 
 load_file_prompt = ChatPromptTemplate.from_template("""
@@ -104,10 +104,13 @@ If there is not a markdown table in the input return an empty JSON object. Other
 << INPUT >>
 {input_file}
 
+<< OUTPUT >>
+Only return a JSON Object, no more!! The only valid output is a JSON Object.
+
 """)
 
 
-# In[ ]:
+# In[6]:
 
 
 formating_header_prompt = ChatPromptTemplate.from_template("""
@@ -121,7 +124,7 @@ Follow the following instruction:
 "header_match": [
         {{{{
             "template_header": string, \ header of "template" table
-            "table_header": string, \ header of "new_file" table table most similar to the N header of "template" table
+            "table_header": string, \ header of "new_file" table most similar to the N header of "template" table
         }}}},
         ...
     ],
@@ -136,10 +139,12 @@ Follow the following instruction:
 {template_description}
 
 << OUTPUT >>
+Only return a JSON Object, no more!! The only valid output is a JSON Object.
+
 """)
 
 
-# In[ ]:
+# In[7]:
 
 
 table_proposal_prompt = ChatPromptTemplate.from_template("""
@@ -176,10 +181,13 @@ Return the new markdown table in a JSON Object formatted to look like:
 {table_header_match}
 {template_description}
 
+<< OUTPUT >>
+Only return a JSON Object, no more!! The only valid output is a JSON Object.
+
 """)
 
 
-# In[ ]:
+# In[8]:
 
 
 formating_categories_prompt = ChatPromptTemplate.from_template("""
@@ -205,11 +213,11 @@ Step 4: Return the updated  "simple_table" JSON object.
 {simple_table}
 
 << OUTPUT >>
-Return the updated  "simple_table" JSON object.
+Return the updated  "simple_table" JSON object. Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[ ]:
+# In[9]:
 
 
 categories_result_prompt = ChatPromptTemplate.from_template("""
@@ -247,12 +255,12 @@ Return the new markdown table (correct_cats_markdown_table) in a JSON Object for
 {table_categories_match}
 
 << OUTPUT >>
-Return only the JSON Object
+Return only the JSON Object. Only return a JSON Object, no more!! The only valid output is a JSON Object.
 
 """)
 
 
-# In[ ]:
+# In[10]:
 
 
 formating_dates_prompt = ChatPromptTemplate.from_template("""
@@ -275,12 +283,12 @@ Return the new markdown table (correct_dates_markdown_table) in a JSON Object fo
 {table_categories_result}
 
 << OUTPUT >>
-Return only the JSON Object
+Return only the JSON Object. Only return a JSON Object, no more!! The only valid output is a JSON Object.
 
 """)
 
 
-# In[ ]:
+# In[11]:
 
 
 formating_strings_prompt = ChatPromptTemplate.from_template("""
@@ -293,6 +301,7 @@ Step 1: compare the headers in the "table" with the headers in the "template_met
 Step 2: After finding the most similar column, check if it is a string column by checking the "type" key in the "file_metadata" list.
 Step 3: Ignore if it is a categorical, numerical or date column by checking the "categorical" key in the "file_metadata" list.
 Step 4: Add the following information to the "table_dates_result" JSON object.
+Step 5: Transform all the rows of string columns of markdown table so they look like than their columns in "template_metadata".
 Step 5: Return the updated  "table_dates_result" JSON object.
 
 "strings_match": [
@@ -307,11 +316,11 @@ Step 5: Return the updated  "table_dates_result" JSON object.
 {table_dates_result}
 
 << OUTPUT >>
-Return the updated "table_dates_result" JSON object.
+Return the updated "table_dates_result" JSON object. Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[ ]:
+# In[12]:
 
 
 chain_template_load = LLMChain(llm=llm, prompt=load_template_file_prompt, 
@@ -340,7 +349,7 @@ chain_strings_formatting = LLMChain(llm=llm, prompt=formating_strings_prompt,
                     )
 
 
-# In[ ]:
+# In[13]:
 
 
 mapping_chain = SequentialChain(
@@ -355,7 +364,7 @@ mapping_chain = SequentialChain(
 # 
 # It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
 
-# In[ ]:
+# In[14]:
 
 
 def extract_data_attributes(analysis_chain):
@@ -375,84 +384,92 @@ def extract_data_attributes(analysis_chain):
     )
 
 
-# In[ ]:
+# In[15]:
 
 
 def get_python_code_prompt():
     global execution_chain
-    try:
-        map_process = extract_data_attributes(execution_chain)
-        return f"""
-        Also, you will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the initial_table to the same format than  template table.
-        Finally, you will be provided with a final_table in a markdown format as << FINAL_TABLE >>. The final_table is the expected result you need to achieve.
+    # try:
+    map_process = extract_data_attributes(execution_chain)
+    return f"""
+    Also, you will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the initial_table to the same format than  template table.
+    Finally, you will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>. The template_table is the expected result you need to achieve.
 
-        The objective is to create a python code for transforming the initial_table into final_table. You need to use the mapping from renaming columns of initial_table to making their headers the same than final_table.
+    The objective is to create a python code for transforming the initial_table into template_table. You need to use the mapping from renaming columns of initial_table to making their headers the same than template_table.
 
 
 
-        Please follow the steps for creating a python code:
+    Please follow the steps for creating a python code:
 
-        STEP 1: Read initial_table using pandas as a dataframe.
+    STEP 1: Read initial_table using pandas as a dataframe.
+    
+    STEP 2: Replace each value in the column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
+    << CATEGORIES REQUIRED >>>
+    ```json
+    {json.dumps(map_process['categories_match'])}
+    ```
+    You need to implement in this step a code for calculating similarities between strings. Omit this step if "categories_list" are empty. Considers the previous steps.
 
-        STEP 2: Rename columns using HEADERS MAPPING.
-        << HEADERS MAPPING >>
-        ```json
-        {json.dumps(map_process['header_match'])}
-        ```
-        
-        STEP 3: In the following steps only consider the new headers of the columns assigned in STEP 2. Also discard other columns.
-        
-        STEP 4: Transform the date columns of inital_table to the same date format than final_table. Considers the previous steps.
+    STEP 3: Rename columns using HEADERS MAPPING. New headers names are in "template_header" section.
+    << HEADERS MAPPING >>
+    ```json
+    {json.dumps(map_process['header_match'])}
+    ```
+    
+    STEP 4: In the following steps only consider the new headers of the columns assigned in STEP 3. Also discard other columns.
 
-        STEP 5: Replace each value in the column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
-        << CATEGORIES REQUIRED >>>
-        ```json
-        {json.dumps(map_process['categories_match'])}
-        ```
-        You need to implement in this step a code for calculating similarities between strings. Considers the previous steps.
+    STEP 5: Transform the date columns of inital_table to the same date format than template_table. Considers the previous steps.
 
-        STEP 6: Transform all the rows of string columns of dataframe so they have the same format than their corresponding columns in final table. Be sure that values in dataframe string columns have the same punctuation and spaces than their corresponding columns in final_table. For this use regex. Considers the previous steps.
+    STEP 6: Transform all the rows of string columns of dataframe so they look like than their columns in template_table. Considers the previous steps.
+    
+    STEP 7: Transform all the rows of columns (for serials) of dataframe so they look like than their columns (for serials) in template_table. Considers the previous steps.
+    
+    STEP 8: Transform values in numeric columns of inital_table so they look like than their numeric columns in template_table. Considers the previous steps.
 
-        STEP 7: Transform values in numeric columns of inital_table have the same decimals separators and decimals quantity than their corresponding numeric columns in final_table. Considers the previous steps.
+    STEP 9: Read all the code and be sure that all required libraries in the code are correctly imported. Considers the previous steps.
+    
+    STEP 10: Fix all syntaxis errors for python 3.9.
 
-        STEP 8: Read all the code and be sure that all required libraries in the code are correctly imported. Considers the previous steps.
-        
-        STEP 9: Save the dataframe as csv file called "transformed_table".
-        
-        Remember the objective is to reproduce the final_table using python 3.9 or above.
-        
-        CONSTRAINTS
-        a) Code will receive only initial_table as a csv file.
-        B) Avoid inplae parameters in pandas transformations
-        c) The code need to save the transformed table as csv.
-        d) Categorical columns must be filled (not completely empty).
-        d) you need to test that produced result table is exactly the same than final_table provided.
-        e) You must return only a complete python script.
+    STEP 11: Save the dataframe as csv file called "transformed_table".
 
-        << INITIAL_TABLE >>
-        {json.dumps(map_process['initial_table'])}
+    Remember the objective is to reproduce the template_table using python 3.9 or above.
 
-        << FINAL_TABLE >>
-        {json.dumps(map_process['final_table'])}
+    CONSTRAINTS
+    a) Code will receive only initial_table as a csv file.
+    B) Avoid inplae parameters in pandas transformations
+    c) The code need to save the transformed table as csv.
+    d) Categorical columns must be filled (not completely empty).
+    d) you need to test that produced result table is exactly the same than template_table provided.
+    e) You must return only a complete python script.
+    f) template_table is only a markdown that only exists in this prompt for your guidance. final table is not a file nor is it a dataframe.
+    g) template_table is ignored by the resulting python code.
+    h) fix all syntaxis error for python 3.9
 
-        << OUTPUT >>
-        You must return only a complete python script. Please avoid make extra comments, I need only the python script.
+    << INITIAL_TABLE >>
+    {json.dumps(map_process['initial_table'])}
 
-        """
-    except:
-        return None
+    << TEMPLATE_TABLE >>
+    {json.dumps(map_process['final_table'])}
+
+    << OUTPUT >>
+    You must return only a complete python script. Please avoid make extra comments, I need only the python script.
+
+    """
+    # except Exception as e:
+    #     print(f"{e}")
+    #     return None
 
 
 # ## User Interface Functions
 
-# In[ ]:
+# In[16]:
 
 
 def markdown_to_html(md_table_string):
     return markdown.markdown(md_table_string, extensions=['markdown.extensions.tables'])
 
 
-# In[ ]:
+# In[17]:
 
 
 def process_csv(file, file_label):
@@ -481,7 +498,7 @@ def process_new_file(file):
     return process_csv(file, 'new_file')
 
 
-# In[ ]:
+# In[18]:
 
 
 _file_buffer = {
@@ -518,7 +535,7 @@ Input File:
     
 
 
-# In[ ]:
+# In[19]:
 
 
 anaylisis_check = False
@@ -527,7 +544,7 @@ def feedback_analysis(res):
     anaylisis_check = (res=='Yes')
 
 
-# In[ ]:
+# In[20]:
 
 
 python_text = ''
@@ -556,7 +573,7 @@ def generate_python_code():
     return python_text
 
 
-# In[ ]:
+# In[21]:
 
 
 python_code_check = False
@@ -573,7 +590,7 @@ def feedback_python_code(res):
         return "Please confirm Analysis at Step 2."
 
 
-# In[ ]:
+# In[22]:
 
 
 def download_python_code():
@@ -593,7 +610,7 @@ def download_python_code():
 # ### Chatbot functions
 # There is a chatbot, here GPT memory handle the token usage.
 
-# In[ ]:
+# In[23]:
 
 
 memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=4000)
@@ -604,7 +621,7 @@ bot_conversation = ConversationChain(
 )
 
 
-# In[ ]:
+# In[24]:
 
 
 def respond(message, chat_history, instruction, temperature=0.0):  
@@ -619,7 +636,7 @@ def respond(message, chat_history, instruction, temperature=0.0):
     return "", chat_history
 
 
-# In[ ]:
+# In[25]:
 
 
 with gr.Blocks() as demo:
@@ -693,4 +710,55 @@ gr.close_all()
 demo.queue().launch(share=False, server_port=int(os.environ['GRADIO_SERVER_PORT']))
 
 
+# ## Generating Examples for Further Training GPT Model
+
+# In[ ]:
+
+
+import pickle
+
+
+# In[ ]:
+
+
+number_task = '7'
+
+with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'wb') as handle:
+    pickle.dump({
+        'prompt':get_python_code_prompt(),
+        'completion':python_text
+    }, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+# In[ ]:
+
+
+with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'rb') as handle:
+    bb = pickle.load(handle)
+
+
+# In[ ]:
+
+
+print(bb['prompt'])
+
+
+# In[ ]:
+
+
+print(bb['completion'])
+
+
 # ## END
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
