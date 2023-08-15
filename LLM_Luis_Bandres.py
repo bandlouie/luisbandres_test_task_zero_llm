@@ -1,0 +1,697 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[ ]:
+
+
+import os
+import io
+import json
+import markdown
+import warnings
+import pandas as pd
+import gradio as gr
+import IPython.display
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import ConversationChain
+from langchain.memory import ConversationTokenBufferMemory
+from langchain.chains import SequentialChain
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains import LLMChain
+
+
+# In[ ]:
+
+
+warnings.filterwarnings('ignore')
+
+from dotenv import load_dotenv, find_dotenv
+_ = load_dotenv(find_dotenv()) # read local .env file
+
+
+# In[ ]:
+
+
+llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
+
+
+# ## LLM Mapping Chain
+# 
+# It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
+
+# In[ ]:
+
+
+load_template_file_prompt = ChatPromptTemplate.from_template("""
+
+You will be provided with a table in a markdown format as << INPUT >>.
+
+If there is not a markdown table in the input return an empty JSON object. Otherwise, return a JSON object formatted to look like:
+
+<< FORMATTING >>
+{{{{
+    "template_metadata": [
+        {{{{
+            "header": string, \ name of the column. If the input does not contain a header suggest a name for the column based on its data.
+            "type": string, \ type of the data column of the markdown file in the input. 
+            "sample": \ put a not null samble of the column. This sample should have the most common value which is not null.
+            "categorical": bool \ check if the column is categorical (true) or not categorical (false).
+            "categories_list": [] \ list of the unique values if the column is categorical.
+            "date_format": null except if type is date suggest SQL DATE FORMAT for converting the column values to date.
+            "description": string \ descrption of this column based only on its data.
+        }}}},
+        ...
+    ]
+}}}}
+
+
+<< INPUT >>
+{input_template}
+
+<< OUTPUT >>
+""")
+
+
+# In[ ]:
+
+
+load_file_prompt = ChatPromptTemplate.from_template("""
+
+You will be provided with a table in a markdown format as << INPUT >>.
+Also you will provided with the name of the table as << TABLE >>
+
+If there is not a markdown table in the input return an empty JSON object. Otherwise, return a JSON object formatted to look like:
+
+<< FORMATTING >>
+{{{{ 
+    "table_name": string, \ name of the table. you can find it at the begining of the input.
+    "file_metadata": [
+        {{{{
+            "header": string, \ name of the column. If the input does not contain a header suggest a name for the column based on its data.
+            "type": string, \ type of the data column of the markdown file in the input. 
+            "sample": \ put a not null samble of the column. This sample should have the most common value which is not null.
+            "date_format": string, \ null except if type is date suggest SQL DATE FORMAT for converting the column values to date.
+            "description": string \ description of this column based only on its data.
+        }}}},
+        ...
+    ],
+    "table" : string \ the complete markdown table in the input
+}}}}
+
+<< TABLE >>
+{table_name}
+
+<< INPUT >>
+{input_file}
+
+""")
+
+
+# In[ ]:
+
+
+formating_header_prompt = ChatPromptTemplate.from_template("""
+You will receive two JSON Objects called table_info and template_description as inputs << INPUT >.
+
+Follow the following instruction:
+
+    Step 1: Go over the list table_info['file_metadata'] and find what is the N header in the list template_description['template_metadata'] most similar to the "new_file" table header.
+    Step 2: return the same "table_info" JSON object adding the following information:
+
+"header_match": [
+        {{{{
+            "template_header": string, \ header of "template" table
+            "table_header": string, \ header of "new_file" table table most similar to the N header of "template" table
+        }}}},
+        ...
+    ],
+
+"template_header" is the N header of "template" table most similar to the correspoding header of "new_file" table. Determine this similarity based only on the metadata such as:
+    * Data types
+    * Samples of both tables
+    * Description
+
+<< INPUT >>
+{table_info}
+{template_description}
+
+<< OUTPUT >>
+""")
+
+
+# In[ ]:
+
+
+table_proposal_prompt = ChatPromptTemplate.from_template("""
+You will receive two JSON Objects called table_header_match and template_description as inputs << INPUT >.
+
+Follow the next instructions for generating a markdown table:
+    
+    Step 1: Go over the list table_header_match["header_match"].
+    Step 2: For each one of the table_header_match["header_match"]["table_header"], replace the header of the markdown table in table_header_match["table"] by table_header_match["header_match"]["template_header"]
+    Step 3: The new markdown table must have only the columns in listed in table_header_match["header_match"]["template_header"]. Remove all the remaining columns different to table_header_match["header_match"]["template_header"].
+
+Return the new markdown table in a JSON Object formatted to look like:
+
+<< FORMATTING >>
+{{{{ 
+    "table_name": string, \ name of the table. you can find it in table_header_match["table_name"].
+    "file_metadata": [
+        {{{{
+            "header": string, \ name of the column.
+            "type": string, \ type of the data column of the markdown file in the input. 
+            "sample": \ put a not null samble of the column. This sample should have the most common value which is not null.
+            "categorical": bool \ check if the column is categorical (true) or not categorical (false).
+            "categories_list": [] \ list of the unique values if the column is categorical.
+            "date_format": null except if type is date suggest SQL DATE FORMAT for converting the column values to date.
+            "description": string \ descrption of this column based only on its data.
+        }}}},
+        ...
+    ],
+    "modified_table" : string, \ the new markdown table.
+    "template_metadata": template_description["template_metadata"]  \ the template metadata.
+}}}}
+
+<< INPUT >>
+{table_header_match}
+{template_description}
+
+""")
+
+
+# In[ ]:
+
+
+formating_categories_prompt = ChatPromptTemplate.from_template("""
+You will receive a JSON Object called simple_table as input << INPUT >.
+
+Based on the given input, the task is to find the column in the "modified_table" that is most similar to the N header in the "template_metadata" list. Then, select only the categorical columns and return the "simple_table" JSON object with the added information.
+
+Follow the next instructions for generating a markdown table:
+Step 1: compare the headers in the "modified_table" with the headers in the "template_metadata" list. We will  iterate over the columns in the "modified_table" and find the column that is most similar to the N header in the "template_metadata" list.
+Step 2: After finding the most similar column, check if it is a categorical column by checking the "categorical" key in the "file_metadata" list.
+Step 3: Add the following information to the "simple_table" JSON object.
+Step 4: Return the updated  "simple_table" JSON object.
+
+"categories_match": [
+    {{{{
+        "categories_list": string, \ list of categories in simple_table['template_metadata']
+        "table_header": string, \ header of markdown table in simple_table["modified_table"] most similar to the N header of "template_metadata"
+    }}}},
+    ...
+],
+
+<< INPUT >>
+{simple_table}
+
+<< OUTPUT >>
+Return the updated  "simple_table" JSON object.
+""")
+
+
+# In[ ]:
+
+
+categories_result_prompt = ChatPromptTemplate.from_template("""
+You will receive a JSON Object called table_categories_match as input << INPUT >.
+
+Based on the given input, the task is to generate a markdown table by replacing each value in the categorical columns of the "modified_table" with the most similar item from the "categories_list" in the "categories_match" section. The updated table should be returned as a JSON object.
+
+Follow the next instructions for generating a markdown table:
+Step 1: Iterate over each categorical column in the "modified_table".
+Step 2: Replace each value in the column with the most similar item from the "categories_list" in the "categories_match" section.
+Setp 3: the new markdown table will be called correct_cats_markdown_table
+
+Return the new markdown table (correct_cats_markdown_table) in a JSON Object formatted to look like:
+
+<< FORMATTING >>
+{{{{ 
+    "table_name": string, \ name of the table. you can find it in table_categories_match["table_name"].
+    "file_metadata": [
+    {{{{
+        "header": string, \ name of the column.
+        "type": string, \ type of the data column of the markdown file in the input. 
+        "sample": \ put a not null samble of the column. This sample should have the most common value which is not null.
+        "categorical": bool \ check if the column is categorical (true) or not categorical (false).
+        "categories_list": [] \ list of the unique values if the column is categorical.
+        "date_format": null except if type is date suggest SQL DATE FORMAT for converting the column values to date.
+        "description": string \ descrption of this column based only on its data.
+    }}}},
+    ...
+    ],
+    "table" : string, \ the new markdown table (correct_cats_markdown_table).
+    "template_metadata": table_categories_match["template_metadata"]  \ the template metadata.
+}}}}
+
+<< INPUT >>
+{table_categories_match}
+
+<< OUTPUT >>
+Return only the JSON Object
+
+""")
+
+
+# In[ ]:
+
+
+formating_dates_prompt = ChatPromptTemplate.from_template("""
+You will receive a JSON Object called table_categories_result as input << INPUT >.
+
+Change the format of each one the rows of date columns in the markdown in table_categories_result["table"] according to the date format in the list table_categories_result["template_metadata"]
+
+The new markdown table will be called correct_dates_markdown_table
+
+Return the new markdown table (correct_dates_markdown_table) in a JSON Object formatted to look like:
+
+<< FORMATTING >>
+{{{{ 
+    "table_name": string, \ name of the table. you can find it in table_categories_result["table_name"].
+    "table" : string, \ the new markdown table (correct_dates_markdown_table).
+    "template_metadata": table_categories_result["template_metadata"]  \ the template metadata.
+}}}}
+
+<< INPUT >>
+{table_categories_result}
+
+<< OUTPUT >>
+Return only the JSON Object
+
+""")
+
+
+# In[ ]:
+
+
+formating_strings_prompt = ChatPromptTemplate.from_template("""
+You will receive a JSON Object called table_dates_result as input << INPUT >.
+
+Based on the given input, the task is to find the column in the markdown "table" that is most similar to the N header in the "template_metadata" list. Then, select only the string columns and return the "table_dates_result" JSON object with the added information.
+
+Follow the next instructions for generating a markdown table:
+Step 1: compare the headers in the "table" with the headers in the "template_metadata" list. We will  iterate over the columns in the "table" and find the column that is most similar to the N header in the "template_metadata" list.
+Step 2: After finding the most similar column, check if it is a string column by checking the "type" key in the "file_metadata" list.
+Step 3: Ignore if it is a categorical, numerical or date column by checking the "categorical" key in the "file_metadata" list.
+Step 4: Add the following information to the "table_dates_result" JSON object.
+Step 5: Return the updated  "table_dates_result" JSON object.
+
+"strings_match": [
+    {{{{
+        "selected_sample": string, \ sample of data in table_dates_result["template_metadata"]
+        "table_header": string, \ header of markdown table in table_dates_result["table"] most similar to the N header of "template_metadata"
+    }}}},
+    ...
+],
+
+<< INPUT >>
+{table_dates_result}
+
+<< OUTPUT >>
+Return the updated "table_dates_result" JSON object.
+""")
+
+
+# In[ ]:
+
+
+chain_template_load = LLMChain(llm=llm, prompt=load_template_file_prompt, 
+                     output_key="template_description"
+                    )
+chain_load = LLMChain(llm=llm, prompt=load_file_prompt, 
+                     output_key="table_info"
+                    )
+chain_header_formatting = LLMChain(llm=llm, prompt=formating_header_prompt, 
+                     output_key="table_header_match"
+                    )
+chain_proposal = LLMChain(llm=llm, prompt=table_proposal_prompt, 
+                     output_key="simple_table"
+                    )
+chain_cats_formatting = LLMChain(llm=llm, prompt=formating_categories_prompt, 
+                     output_key="table_categories_match"
+                    )
+chain_cats_result = LLMChain(llm=llm, prompt=categories_result_prompt, 
+                     output_key="table_categories_result"
+                    )
+chain_dates_result = LLMChain(llm=llm, prompt=formating_dates_prompt, 
+                     output_key="table_dates_result"
+                    )
+chain_strings_formatting = LLMChain(llm=llm, prompt=formating_strings_prompt, 
+                     output_key="table_strings_match"
+                    )
+
+
+# In[ ]:
+
+
+mapping_chain = SequentialChain(
+    chains=[chain_template_load, chain_load, chain_header_formatting, chain_proposal, chain_cats_formatting, chain_cats_result, chain_dates_result, chain_strings_formatting],
+    input_variables=["input_template","table_name","input_file"],
+    output_variables=["table_header_match","table_categories_match","table_strings_match"],
+    verbose=True
+)
+
+
+# ## LLM Coding Chain
+# 
+# It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
+
+# In[ ]:
+
+
+def extract_data_attributes(analysis_chain):
+    return dict(
+        # Inputs
+        template_table = analysis_chain['input_template'],
+        initial_table = analysis_chain['input_file'],
+        # Metadata
+        file_metadata = json.loads(analysis_chain['table_header_match'])['file_metadata'],
+        template_metadata = json.loads(analysis_chain['table_categories_match'])['template_metadata'],
+        # Feature Mappings
+        header_match = json.loads(analysis_chain['table_header_match'])['header_match'],
+        categories_match = json.loads(analysis_chain['table_categories_match'])['categories_match'],
+        strings_match = json.loads(analysis_chain['table_strings_match'])['strings_match'],
+        # Final Table
+        final_table = json.loads(analysis_chain['table_strings_match'])['table']
+    )
+
+
+# In[ ]:
+
+
+def get_python_code_prompt():
+    global execution_chain
+    try:
+        map_process = extract_data_attributes(execution_chain)
+        return f"""
+        Also, you will be provided with a intial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the intial_table to the same format than  template table.
+        Finally, you will be provided with a final_table in a markdown format as << FINAL_TABLE >>. The final_table is the expected result you need to achieve.
+
+        The objective is to create a python code for transforming the intial_table into final_table. You need to use the mapping from renaming columns of intial_table to making their headers the same than final_table.
+
+
+
+        Please follow the steps for creating ETL pipeline in a python code:
+
+        STEP 1: Read intial_table using pandas.
+
+        STEP 2: Rename columns using HEADERS MAPPING.
+        << HEADERS MAPPING >>
+        ```json
+        {json.dumps(map_process['header_match'])}
+        ```
+        
+        STEP 3: In the next steps only consider the new names of the columns assigned in STEP 2.
+        
+        STEP 4: Transform the date columns of inital_table to the same date format than final_table.
+
+        STEP 5: Replace each value in the column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the "intial_table" with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
+        << CATEGORIES REQUIRED >>>
+        ```json
+        {json.dumps(map_process['categories_match'])}
+        ```
+        You need to implement in this step a code for calculating similarities between strings.
+
+        STEP 6: Transform all the rows of string columns of initial_table so they have the same format than their corresponding columns in final table. Be sure that values in initial_table string columns have the same punctuation and spaces than their corresponding columns in final_table. For this use regex.
+
+        STEP 7: Transform values in numeric columns of inital_table have the same decimals separators and decimals quantity than their corresponding numeric columns in final_table. 
+
+        STEP 8: Remove all columns in transformed_table which headers are not present in the headers of final_table markdown provided. Important: final_table is provided in this prompt as a markdown table. Dont load the file in the python script.
+
+        STEP 9: Read all the code and be sure that all required libraries in the code are correctly imported
+
+        STEP 10: Format the final python script using PEP8 standar.
+
+        Remember the objective is to reproduce the final_table using python 3.9 or above.
+        The result table will be called as transformed_table.
+        CONSTRAINTS
+        a) Code will receive only intial_table as a csv file.
+        B) Avoid inplae parameters in pandas transformations
+        c) The code need to save the transformed table as csv.
+        d) Categorical columns must be filled (not completely empty).
+        d) you need to test that produced result table is exactly the same than final_table provided.
+        e) You must return only a complete python script.
+
+        << INITIAL_TABLE >>
+        {json.dumps(map_process['initial_table'])}
+
+        << FINAL_TABLE >>
+        {json.dumps(map_process['final_table'])}
+
+        << OUTPUT >>
+        You must return only a complete python script. Please avoid make extra comments, I need only the python script.
+
+        """
+    except:
+        return None
+
+
+# ## User Interface Functions
+
+# In[ ]:
+
+
+def markdown_to_html(md_table_string):
+    return markdown.markdown(md_table_string, extensions=['markdown.extensions.tables'])
+
+
+# In[ ]:
+
+
+def process_csv(file, file_label):
+    global _file_buffer
+    
+    # Read the uploaded CSV file with pandas
+    df = pd.read_csv(io.StringIO(file.decode('utf-8')))
+    
+    # Convert the DataFrame to an HTML table with added styles
+    html_table = df.to_html(classes='table table-striped')
+    
+    # Add CSS for scrollable table
+    styled_table = f"""
+    <div style="max-width: 100%; overflow-x: auto;">
+        {html_table}
+    </div>
+    """
+    _file_buffer[file_label] = df.to_markdown()
+    
+    return styled_table
+
+def process_template(file):
+    return process_csv(file, 'template')
+
+def process_new_file(file):
+    return process_csv(file, 'new_file')
+
+
+# In[ ]:
+
+
+_file_buffer = {
+    'template':'',
+    'new_file':'',
+}
+execution_chain = None
+def tables_analysis():
+    global _file_buffer
+    global execution_chain
+    execution_chain = mapping_chain({
+        "input_template":_file_buffer['template'],
+        "table_name":"new_file",
+        "input_file":_file_buffer['new_file']
+    })
+    result_chain = json.loads(execution_chain['table_strings_match'])
+    show_table_html = markdown_to_html(result_chain['table'])
+    system_context = f"""
+This is the transformed data according to the template.
+
+Transformed Data:
+
+{result_chain['table']}
+
+Template:
+
+{execution_chain['input_template']}
+
+Input File:
+
+{execution_chain['input_file']}
+    """
+    return show_table_html, system_context
+    
+
+
+# In[ ]:
+
+
+anaylisis_check = False
+def feedback_analysis(res):
+    global anaylisis_check
+    anaylisis_check = (res=='Yes')
+
+
+# In[ ]:
+
+
+python_text = ''
+is_new_chat = True
+def generate_python_code():
+    global python_text
+    global is_new_chat
+    if anaylisis_check:
+        try:
+            del python_code_conv
+        except:
+            pass
+        try:
+            # No uses memory
+            python_code_conv = ConversationChain(
+                llm=llm, 
+                verbose=False
+            )
+            python_text = python_code_conv.predict(input=get_python_code_prompt())
+            python_text = python_text.split('```python')[1].split('```')[0]
+            is_new_chat = True
+        except:
+            python_text = ""
+    else:
+        python_text = "Please confirm the file was mapped correctly."
+    return python_text
+
+
+# In[ ]:
+
+
+python_code_check = False
+def feedback_python_code(res):
+    global anaylisis_check
+    global python_code_check
+    python_code_check = (res=='Yes')
+    if anaylisis_check:
+        if python_code_check:
+            return "Python Code Valid!"
+        else:
+            return "Python Code Invalid!"
+    else:
+        return "Please confirm Analysis at Step 2."
+
+
+# In[ ]:
+
+
+def download_python_code():
+    global anaylisis_check
+    global python_code_check
+    global python_text
+    if (anaylisis_check & python_code_check):
+        # Save the string to a file
+        filename = "output_python_code.py"
+        with open(filename, 'w') as f:
+            f.write(python_text)
+
+        # Return the file path so Gradio can allow the user to download it
+        return filename
+
+
+# ### Chatbot functions
+# There is a chatbot, here GPT memory handle the token usage.
+
+# In[ ]:
+
+
+memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=4000)
+bot_conversation = ConversationChain(
+    llm=llm, 
+    verbose=False,
+    memory=memory
+)
+
+
+# In[ ]:
+
+
+def respond(message, chat_history, instruction, temperature=0.0):  
+    global is_new_chat
+    if is_new_chat:
+        memory.save_context({"input": get_python_code_prompt()}, {"output": python_text})
+        is_new_chat = False
+    else:
+        prompt = message
+    bot_message = bot_conversation.predict(input=message)
+    chat_history.append((message, bot_message))
+    return "", chat_history
+
+
+# In[ ]:
+
+
+with gr.Blocks() as demo:
+    with gr.Row():
+        with gr.Column():
+            gr.HTML('<h1 align="center">Test Task Submission</h1>')
+            gr.HTML('<h3 align="center">Luis Bandres</h3>')
+            gr.HTML('<p align="center">Add description here</p>')
+    with gr.Row():
+        with gr.Column():
+            # Load Data
+            gr.HTML('<h2 align="center">Step 1: Load Data</h2>')
+            
+            upload_template = gr.inputs.File(type="bytes", label="Upload Template")
+            data_template = gr.outputs.HTML(label="Template")
+            upload_template.upload(process_template, inputs=upload_template, outputs=data_template)
+            
+            upload_file = gr.inputs.File(type="bytes", label="Upload New File")
+            data_file = gr.outputs.HTML(label="New File")
+            upload_file.upload(process_new_file, inputs=upload_file, outputs=data_file)
+
+        with gr.Column():
+            # Analyse Data
+            gr.HTML('<h2 align="center">Step 3: Analysis </h2>')
+            gr.HTML('<p align="left">This process could take up to 5 minutes...</p>')
+            btn_analyse = gr.Button("Analyse Table")
+            data_proposal = gr.outputs.HTML(label="Data Mapping Result")
+            chk_analysis = gr.Radio(["Yes", "No"], label="Data was mapped correctly?")
+
+            # Generating Code
+            gr.HTML('<h2 align="center">Step 4: Generate Python Code </h2>')
+            btn_python_code = gr.Button("Generate")
+            text_python_code = gr.Textbox(value="Please Generate Python Code",label="Python Code")
+            chk_python_code = gr.Radio(["Yes", "No"], label="Python code is correct?")
+            
+            # Edit Code
+            gr.HTML('<h2 align="center">Step 5: Download Python Code </h2>')
+            gr.HTML('<h3 align="left">Requisites:</h3>')
+            gr.HTML('<p align="left">   * Step 2 must be confirmed.</p>')
+            gr.HTML('<p align="left">   * Step 3 must be confirmed.</p>')
+            python_code_result = gr.outputs.HTML(label="Result Python Code")
+            btn_download_python = gr.Button("Save Code")
+            download_python = gr.outputs.File(label="Generated Python Code")
+    
+    with gr.Row():    
+        with gr.Column():
+            # Chatbot
+            gr.HTML('<h2 align="center">Step 6: Advanced Options </h2>')
+            gr.HTML('<b align="left">This is a chatbot powered by OpenAI GPT 3.5 so it can help you to editing the code with AI Assistance. The Table Analysis and the Generated Python Code have been loaded to this assistant.</p>')
+            chatbot = gr.Chatbot(height=446, label='Chatbot') #just to fit the notebook
+            msg = gr.Textbox(label="Prompt")
+            with gr.Accordion(label="Settings",open=False):
+                system_context = gr.Textbox(label="System Context", lines=2, value="A conversation between a user and an LLM-based AI python coding assistant. The assistant gives helpful, honest, and precise answers. The assistant must act as a programmer.")
+            btn = gr.Button("Submit")
+            clear = gr.ClearButton(components=[msg, chatbot], value="Clear console")
+            
+    # Actions
+    btn_analyse.click(tables_analysis, inputs=None, outputs=[data_proposal,system_context])
+    chk_analysis.change(feedback_analysis,inputs=chk_analysis, outputs=None)
+
+    btn_python_code.click(generate_python_code,inputs=None,outputs=text_python_code)
+    chk_python_code.change(feedback_python_code,inputs=chk_python_code, outputs=python_code_result)
+
+    btn_download_python.click(download_python_code,inputs=None,outputs=download_python)
+
+    btn.click(respond, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot])
+    msg.submit(respond, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot]) #Press enter to submit
+
+gr.close_all()
+demo.queue().launch(share=False, server_port=int(os.environ['GRADIO_SERVER_PORT']))
+
+
+# ## END
