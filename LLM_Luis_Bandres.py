@@ -123,8 +123,8 @@ Follow the following instruction:
 
 "header_match": [
         {{{{
-            "template_header": string, \ header of "template" table
             "table_header": string, \ header of "new_file" table most similar to the N header of "template" table
+            "template_header": string, \ header of "template" table
         }}}},
         ...
     ],
@@ -383,73 +383,132 @@ def extract_data_attributes(analysis_chain):
         final_table = json.loads(analysis_chain['table_strings_match'])['table']
     )
 
+# def get_python_code_prompt():
+#     global execution_chain
+#     # try:
+#     map_process = extract_data_attributes(execution_chain)
+#     return f"""
+#     Also, you will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the initial_table to the same format than  template table.
+#     Finally, you will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>. The template_table is the expected result you need to achieve.
 
-# In[15]:
+#     The objective is to create a python code for transforming the initial_table into template_table. You need to use the mapping from renaming columns of initial_table to making their headers the same than template_table.
+
+
+#     Please follow the next 12 (twelve) steps for creating a python code:
+
+#     STEP 1: Load initial_table using pandas 1.3.1 as a dataframe.
+    
+#     STEP 2: Run this step if and only if any "table_header" in "categories_list" << CATEGORIES REQUIRED >>> is in initial_table headers. Omit this step if "categories_list" is an empty list.
+    
+#     Replace each value in the strings column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
+#     << CATEGORIES REQUIRED >>>
+#     ```json
+#     {json.dumps(map_process['categories_match'])}
+#     ```
+#     When calculate similarity, not use index [0] if difflib.get_close_matches() returns an empty list. In that case use the original category value.
+#     You need to implement in this step a code for calculating similarities between strings. All resulting categories columns must be string columns. Considers the previous steps.
+    
+#     STEP 3: Rename columns using HEADERS MAPPING. New headers names are in "template_header" section.
+#     << HEADERS MAPPING >>
+#     ```json
+#     {json.dumps(map_process['header_match'])}
+#     ```
+    
+#     STEP 3.5: Run the same processes in STEP if and only if any "table_header" in "categories_list" << CATEGORIES REQUIRED >>> is in updated initial_table headers. Omit this step if "categories_list" is an empty list.
+    
+#     STEP 4: In the following steps only consider the new headers of the columns assigned in STEP 3. Also discard other columns.
+
+#     STEP 5: Transform the date columns of inital_table to the same date format than template_table. Considers the previous steps.
+    
+#     STEP 6: Transform all the rows of string columns (except categories columns in STEP 3) of dataframe so they look like than their columns in template_table. Considers the previous steps.
+    
+#     STEP 7: Transform all the rows of columns (for serials) of dataframe so they look like than their columns (for serials) in template_table. Considers the previous steps.
+    
+#     STEP 8: Transform values in numeric columns of inital_table so they look like than their numeric columns in template_table. Considers the previous steps.
+
+#     STEP 9: Read all the code and be sure that all required libraries in the code are correctly imported. Considers the previous steps.
+    
+#     STEP 10: Fix all syntaxis errors for python 3.9.
+    
+#     STEP 11: Remove any duplicated column.
+
+#     STEP 12: Save the dataframe as csv file called "transformed_table".
+
+#     Remember the objective is to reproduce the template_table using python 3.9 or above.
+
+#     CONSTRAINTS
+#     a) Code will receive only initial_table as a csv file.
+#     b) Avoid inplae parameters in pandas transformations
+#     c) The code need to save the transformed table as csv.
+#     d) Categorical columns must be filled (not completely empty).
+#     d) you need to test that produced result table is exactly the same than template_table provided.
+#     e) You must return only a complete python script.
+#     f) template_table is only a markdown that only exists in this prompt for your guidance. final table is not a file nor is it a dataframe.
+#     g) template_table is ignored by the resulting python code.
+#     h) fix all syntaxis error for python 3.9
+
+#     << INITIAL_TABLE >>
+#     {json.dumps(map_process['initial_table'])}
+
+#     << TEMPLATE_TABLE >>
+#     {json.dumps(map_process['final_table'])}
+
+#     << OUTPUT >>
+#     You must return only a complete python script. Please avoid make extra comments, I need only the python script.
+
+#     """
+#     # except Exception as e:
+#     #     print(f"{e}")
+#     #     return None
+# In[56]:
 
 
 def get_python_code_prompt():
     global execution_chain
     # try:
     map_process = extract_data_attributes(execution_chain)
+    cat_list = sum([d['categories_list'] for d in map_process['categories_match']],[])
     return f"""
-    Also, you will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the initial_table to the same format than  template table.
-    Finally, you will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>. The template_table is the expected result you need to achieve.
+    You will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>.
+    You will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>.
+    You will be provided with a JSON object with headers mapping as << HEADERS MAPPING >>>
+    You will be provided with a list of allowed categories as << CATEGORIES ALLOWED >>>
 
-    The objective is to create a python code for transforming the initial_table into template_table. You need to use the mapping from renaming columns of initial_table to making their headers the same than template_table.
-
-
-
-    Please follow the steps for creating a python code:
-
-    STEP 1: Read initial_table using pandas as a dataframe.
+    Create a python code for transforming the initial_table into template_table so initial_table will be indetical to template_table. Python Code must handle exceptions at each step: Python Code must end without errors.
     
-    STEP 2: Replace each value in the column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
-    << CATEGORIES REQUIRED >>>
-    ```json
-    {json.dumps(map_process['categories_match'])}
-    ```
-    You need to implement in this step a code for calculating similarities between strings. Omit this step if "categories_list" are empty. Considers the previous steps.
+    initial_table must be loaded from csv file as a dataframe of only strings using pandas 1.3.1. and python 3.9
+    
+    template_table is only a markdown (is not a csv file) that only exists in this prompt as a guide.
+    
+    Headers must be renamed according to << HEADERS MAPPING >> 
+    
+    All the rows of columns of dataframe must look like than their columns in template_table: must have the same punctuation and letter cases
+    
+    Replace each value in the categories columns with the most similar (difflib.get_close_matches()) item from the list in << CATEGORIES ALLOWED >>>. When calculate similarity, not use index [0] if difflib.get_close_matches() returns an empty list. In that case use the original category value. All resulting categories columns must be string columns. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from list in the << CATEGORIES ALLOWED >>>. All categories must be kept as strings always.
+    
+    Only keep the same columns than template_table.
 
-    STEP 3: Rename columns using HEADERS MAPPING. New headers names are in "template_header" section.
+    Save the dataframe as csv file called "transformed_table".
+
+    << INITIAL_TABLE >>
+    ```markdown
+    {json.dumps(map_process['initial_table'])}
+    ```
+
+    << TEMPLATE_TABLE >>
+    ```markdown
+    {json.dumps(map_process['final_table'])}
+    ```
+        
     << HEADERS MAPPING >>
     ```json
     {json.dumps(map_process['header_match'])}
     ```
     
-    STEP 4: In the following steps only consider the new headers of the columns assigned in STEP 3. Also discard other columns.
-
-    STEP 5: Transform the date columns of inital_table to the same date format than template_table. Considers the previous steps.
-
-    STEP 6: Transform all the rows of string columns of dataframe so they look like than their columns in template_table. Considers the previous steps.
-    
-    STEP 7: Transform all the rows of columns (for serials) of dataframe so they look like than their columns (for serials) in template_table. Considers the previous steps.
-    
-    STEP 8: Transform values in numeric columns of inital_table so they look like than their numeric columns in template_table. Considers the previous steps.
-
-    STEP 9: Read all the code and be sure that all required libraries in the code are correctly imported. Considers the previous steps.
-    
-    STEP 10: Fix all syntaxis errors for python 3.9.
-
-    STEP 11: Save the dataframe as csv file called "transformed_table".
-
-    Remember the objective is to reproduce the template_table using python 3.9 or above.
-
-    CONSTRAINTS
-    a) Code will receive only initial_table as a csv file.
-    B) Avoid inplae parameters in pandas transformations
-    c) The code need to save the transformed table as csv.
-    d) Categorical columns must be filled (not completely empty).
-    d) you need to test that produced result table is exactly the same than template_table provided.
-    e) You must return only a complete python script.
-    f) template_table is only a markdown that only exists in this prompt for your guidance. final table is not a file nor is it a dataframe.
-    g) template_table is ignored by the resulting python code.
-    h) fix all syntaxis error for python 3.9
-
-    << INITIAL_TABLE >>
-    {json.dumps(map_process['initial_table'])}
-
-    << TEMPLATE_TABLE >>
-    {json.dumps(map_process['final_table'])}
+    << CATEGORIES ALLOWED >>>
+    ```json
+    {json.dumps(cat_list)}
+    ```
 
     << OUTPUT >>
     You must return only a complete python script. Please avoid make extra comments, I need only the python script.
@@ -462,14 +521,14 @@ def get_python_code_prompt():
 
 # ## User Interface Functions
 
-# In[16]:
+# In[17]:
 
 
 def markdown_to_html(md_table_string):
     return markdown.markdown(md_table_string, extensions=['markdown.extensions.tables'])
 
 
-# In[17]:
+# In[18]:
 
 
 def process_csv(file, file_label):
@@ -498,7 +557,7 @@ def process_new_file(file):
     return process_csv(file, 'new_file')
 
 
-# In[18]:
+# In[19]:
 
 
 _file_buffer = {
@@ -535,7 +594,7 @@ Input File:
     
 
 
-# In[19]:
+# In[20]:
 
 
 anaylisis_check = False
@@ -544,7 +603,7 @@ def feedback_analysis(res):
     anaylisis_check = (res=='Yes')
 
 
-# In[20]:
+# In[21]:
 
 
 python_text = ''
@@ -573,7 +632,7 @@ def generate_python_code():
     return python_text
 
 
-# In[21]:
+# In[22]:
 
 
 python_code_check = False
@@ -590,7 +649,7 @@ def feedback_python_code(res):
         return "Please confirm Analysis at Step 2."
 
 
-# In[22]:
+# In[23]:
 
 
 def download_python_code():
@@ -610,7 +669,7 @@ def download_python_code():
 # ### Chatbot functions
 # There is a chatbot, here GPT memory handle the token usage.
 
-# In[23]:
+# In[24]:
 
 
 memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=4000)
@@ -621,7 +680,7 @@ bot_conversation = ConversationChain(
 )
 
 
-# In[24]:
+# In[25]:
 
 
 def respond(message, chat_history, instruction, temperature=0.0):  
@@ -636,7 +695,7 @@ def respond(message, chat_history, instruction, temperature=0.0):
     return "", chat_history
 
 
-# In[25]:
+# In[26]:
 
 
 with gr.Blocks() as demo:
@@ -712,16 +771,22 @@ demo.queue().launch(share=False, server_port=int(os.environ['GRADIO_SERVER_PORT'
 
 # ## Generating Examples for Further Training GPT Model
 
-# In[ ]:
+# In[27]:
+
+
+dfdf
+
+
+# In[51]:
 
 
 import pickle
 
 
-# In[ ]:
+# In[57]:
 
 
-number_task = '7'
+number_task = '12'
 
 with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'wb') as handle:
     pickle.dump({
@@ -730,20 +795,20 @@ with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'wb') 
     }, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-# In[ ]:
+# In[58]:
 
 
 with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'rb') as handle:
     bb = pickle.load(handle)
 
 
-# In[ ]:
+# In[59]:
 
 
 print(bb['prompt'])
 
 
-# In[ ]:
+# In[60]:
 
 
 print(bb['completion'])
