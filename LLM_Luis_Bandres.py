@@ -7,11 +7,15 @@
 import os
 import io
 import json
+import pickle
 import markdown
 import warnings
+import subprocess
 import pandas as pd
 import gradio as gr
 import IPython.display
+import datetime as dt
+from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationTokenBufferMemory
@@ -383,84 +387,8 @@ def extract_data_attributes(analysis_chain):
         final_table = json.loads(analysis_chain['table_strings_match'])['table']
     )
 
-# def get_python_code_prompt():
-#     global execution_chain
-#     # try:
-#     map_process = extract_data_attributes(execution_chain)
-#     return f"""
-#     Also, you will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>. You need to transform the initial_table to the same format than  template table.
-#     Finally, you will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>. The template_table is the expected result you need to achieve.
 
-#     The objective is to create a python code for transforming the initial_table into template_table. You need to use the mapping from renaming columns of initial_table to making their headers the same than template_table.
-
-
-#     Please follow the next 12 (twelve) steps for creating a python code:
-
-#     STEP 1: Load initial_table using pandas 1.3.1 as a dataframe.
-    
-#     STEP 2: Run this step if and only if any "table_header" in "categories_list" << CATEGORIES REQUIRED >>> is in initial_table headers. Omit this step if "categories_list" is an empty list.
-    
-#     Replace each value in the strings column with the most similar item from the "categories_list" << CATEGORIES REQUIRED >>>. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from the "categories_list" in the << CATEGORIES REQUIRED >>>.
-#     << CATEGORIES REQUIRED >>>
-#     ```json
-#     {json.dumps(map_process['categories_match'])}
-#     ```
-#     When calculate similarity, not use index [0] if difflib.get_close_matches() returns an empty list. In that case use the original category value.
-#     You need to implement in this step a code for calculating similarities between strings. All resulting categories columns must be string columns. Considers the previous steps.
-    
-#     STEP 3: Rename columns using HEADERS MAPPING. New headers names are in "template_header" section.
-#     << HEADERS MAPPING >>
-#     ```json
-#     {json.dumps(map_process['header_match'])}
-#     ```
-    
-#     STEP 3.5: Run the same processes in STEP if and only if any "table_header" in "categories_list" << CATEGORIES REQUIRED >>> is in updated initial_table headers. Omit this step if "categories_list" is an empty list.
-    
-#     STEP 4: In the following steps only consider the new headers of the columns assigned in STEP 3. Also discard other columns.
-
-#     STEP 5: Transform the date columns of inital_table to the same date format than template_table. Considers the previous steps.
-    
-#     STEP 6: Transform all the rows of string columns (except categories columns in STEP 3) of dataframe so they look like than their columns in template_table. Considers the previous steps.
-    
-#     STEP 7: Transform all the rows of columns (for serials) of dataframe so they look like than their columns (for serials) in template_table. Considers the previous steps.
-    
-#     STEP 8: Transform values in numeric columns of inital_table so they look like than their numeric columns in template_table. Considers the previous steps.
-
-#     STEP 9: Read all the code and be sure that all required libraries in the code are correctly imported. Considers the previous steps.
-    
-#     STEP 10: Fix all syntaxis errors for python 3.9.
-    
-#     STEP 11: Remove any duplicated column.
-
-#     STEP 12: Save the dataframe as csv file called "transformed_table".
-
-#     Remember the objective is to reproduce the template_table using python 3.9 or above.
-
-#     CONSTRAINTS
-#     a) Code will receive only initial_table as a csv file.
-#     b) Avoid inplae parameters in pandas transformations
-#     c) The code need to save the transformed table as csv.
-#     d) Categorical columns must be filled (not completely empty).
-#     d) you need to test that produced result table is exactly the same than template_table provided.
-#     e) You must return only a complete python script.
-#     f) template_table is only a markdown that only exists in this prompt for your guidance. final table is not a file nor is it a dataframe.
-#     g) template_table is ignored by the resulting python code.
-#     h) fix all syntaxis error for python 3.9
-
-#     << INITIAL_TABLE >>
-#     {json.dumps(map_process['initial_table'])}
-
-#     << TEMPLATE_TABLE >>
-#     {json.dumps(map_process['final_table'])}
-
-#     << OUTPUT >>
-#     You must return only a complete python script. Please avoid make extra comments, I need only the python script.
-
-#     """
-#     # except Exception as e:
-#     #     print(f"{e}")
-#     #     return None
-# In[92]:
+# In[15]:
 
 
 def get_python_code_prompt():
@@ -526,14 +454,14 @@ def get_python_code_prompt():
 
 # ## User Interface Functions
 
-# In[17]:
+# In[16]:
 
 
 def markdown_to_html(md_table_string):
     return markdown.markdown(md_table_string, extensions=['markdown.extensions.tables'])
 
 
-# In[18]:
+# In[17]:
 
 
 def process_csv(file, file_label):
@@ -562,7 +490,7 @@ def process_new_file(file):
     return process_csv(file, 'new_file')
 
 
-# In[19]:
+# In[18]:
 
 
 _file_buffer = {
@@ -599,7 +527,7 @@ Input File:
     
 
 
-# In[20]:
+# In[19]:
 
 
 anaylisis_check = False
@@ -608,7 +536,7 @@ def feedback_analysis(res):
     anaylisis_check = (res=='Yes')
 
 
-# In[21]:
+# In[20]:
 
 
 python_text = ''
@@ -637,7 +565,7 @@ def generate_python_code():
     return python_text
 
 
-# In[22]:
+# In[21]:
 
 
 python_code_check = False
@@ -652,6 +580,23 @@ def feedback_python_code(res):
             return "Python Code Invalid!"
     else:
         return "Please confirm Analysis at Step 2."
+
+
+# In[22]:
+
+
+def save_training_sample():
+    global python_text
+    if (not (python_text is None)) & (python_text!=''):
+        task_date_tag = dt.datetime.strftime(dt.datetime.now(), '%Y%m%d_%H%M%S')
+        with open(f'./additional_task/training_data/sample_{task_date_tag}.pickle', 'wb') as handle:
+            pickle.dump({
+                'prompt':get_python_code_prompt(),
+                'completion':python_text
+            }, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        return 'Sample saved'
+    else:
+        return 'Python script must be generated first'
 
 
 # In[23]:
@@ -671,10 +616,99 @@ def download_python_code():
         return filename
 
 
-# ### Chatbot functions
-# There is a chatbot, here GPT memory handle the token usage.
+# ## Additonal Task Interface
 
 # In[24]:
+
+
+run_string_output = ''
+def start_training_model():
+    global run_string_output
+    # Joining all training samples
+    try:
+        training_data = []
+        for file_name in os.listdir("./additional_task/training_data/"):
+            if file_name.endswith(".pickle"):
+                with open(f'./additional_task/training_data/{file_name}', 'rb') as handle:
+                    training_data.append(pickle.load(handle))
+        training_data = [
+            {'prompt':d['prompt']+'\n\n###\n\n',
+             'completion':d['completion']+' END'
+            } for d in training_data
+        ]
+
+        with open(f'./additional_task/training_file.jsonl', 'w') as handle:
+            handle.write(json.dumps(training_data)[1:-1])
+    except Exception as e:
+        return f'[ERROR] Failed to load training data: {e}'
+    
+    # Preparing Data
+    
+    try:
+        subprocess.check_output(
+            ['rm','./additional_task/training_file_prepared.jsonl']
+        )
+        run_string_output = subprocess.check_output(
+            ['openai','tools','fine_tunes.prepare_data','-f','./additional_task/training_file.jsonl','-q']
+        )
+    except Exception as e:
+        return f"{e}"
+        
+    # Starting Training Job
+    try:
+        run_string_output = subprocess.check_output(
+            ['openai','api','fine_tunes.create','-t','./additional_task/training_file_prepared.jsonl','--no_check_if_files_exist','-m','ada:ft-personal-2023-08-16-15-52-42','--n_epochs','10']
+        )
+    except Exception as e:
+        run_string_output = f"{e}"
+
+    try:
+        run_string_output = run_string_output.decode('utf-8')
+    except:
+        pass
+    
+    return run_string_output
+
+
+# In[25]:
+
+
+def get_training_status():
+    global run_string_output
+    try:
+        train_job_id = run_string_output.split('openai api fine_tunes.follow -i ')[1].strip()
+        return subprocess.check_output(['openai','api','fine_tunes.follow','-i',train_job_id]).decode('utf-8')
+    except Exception as e:
+        return f"{e}"
+
+
+# In[26]:
+
+
+models_list = ['Press Refresh Button']
+def get_models_list():
+    global models_list
+    try:
+        models_list =  subprocess.check_output(['openai','api','fine_tunes.list']).decode('utf-8')
+
+        models_list = pd.DataFrame(json.loads(models_list)['data'])
+        models_list = models_list[['id','updated_at','model','fine_tuned_model']]
+
+        models_list = models_list.sort_values(by='updated_at',ascending=False)
+
+        models_list = models_list['fine_tuned_model'].tolist()
+    except Exception as e:
+        print(f"{e}")
+        models_list = ['Refresh the UI']
+    
+    return gr.Dropdown.update(choices=models_list)
+_ = get_models_list()
+
+
+# ### Main Chatbot functions
+# There is a chatbot, here GPT memory handle the token usage.
+
+# In[27]:
 
 
 memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=4000)
@@ -685,22 +719,57 @@ bot_conversation = ConversationChain(
 )
 
 
-# In[25]:
+# In[28]:
 
 
 def respond(message, chat_history, instruction, temperature=0.0):  
     global is_new_chat
-    if is_new_chat:
-        memory.save_context({"output": python_text})
-        is_new_chat = False
-    else:
-        prompt = message
-    bot_message = bot_conversation.predict(input=message)
-    chat_history.append((message, bot_message))
-    return "", chat_history
+    try:
+        if is_new_chat:
+            memory.save_context({"output": python_text})
+            is_new_chat = False
+        else:
+            prompt = message
+        bot_message = bot_conversation.predict(input=message)
+        chat_history.append((message, bot_message))
+        return "", chat_history
+    except Exception as e:
+        print(f"{e}")
 
 
-# In[26]:
+# ### Addtional Task: Main Chatbot functions
+# There is the chatbot for using the fine-tuned model.
+
+# In[29]:
+
+
+memory_fine_tuned = None
+fine_tuned_bot_conversation = None
+selected_model_llm = None
+def load_fine_tuned_model_bot(model_name):
+    global memory_fine_tuned
+    global fine_tuned_bot_conversation
+    global selected_model_llm
+    try:
+        selected_model_llm = ChatOpenAI(model=model_name, temperature=0.0)
+        memory_fine_tuned = ConversationTokenBufferMemory(llm=selected_model_llm, max_token_limit=2048)
+        fine_tuned_bot_conversation = ConversationChain(
+            llm=selected_model_llm, 
+            verbose=False,
+            memory=memory_fine_tuned
+        )
+        return model_name
+    except Exception as e:
+        print(f"{e}")
+        # memory_fine_tuned = None
+        # fine_tuned_bot_conversation = None
+        # selected_model_llm = None
+        return f"[ERROR] Not selected model {model_name} because of: {e}"
+
+
+# ### Gradio Launch
+
+# In[30]:
 
 
 with gr.Blocks() as demo:
@@ -724,7 +793,7 @@ with gr.Blocks() as demo:
 
         with gr.Column():
             # Analyse Data
-            gr.HTML('<h2 align="center">Step 3: Transform using LLM </h2>')
+            gr.HTML('<h2 align="center">Step 2: Transform using LLM </h2>')
             gr.HTML('<h3 align="left">Dont leave this page while processing.</h3>')
             gr.HTML('<p align="left">This process could take 5 minutes approximately...</p>')
             btn_analyse = gr.Button("Transform Table")
@@ -732,10 +801,17 @@ with gr.Blocks() as demo:
             chk_analysis = gr.Radio(["Yes", "No"], label="Data was mapped correctly?")
 
             # Generating Code
-            gr.HTML('<h2 align="center">Step 4: Generate Python Code </h2>')
+            gr.HTML('<h2 align="center">Step 3: Generate Python Code </h2>')
             btn_python_code = gr.Button("Generate")
             text_python_code = gr.Textbox(value="Please Generate Python Code",label="Python Code")
             chk_python_code = gr.Radio(["Yes", "No"], label="Python code is correct?")
+            
+            # Saving Training Data
+            gr.HTML('<h2 align="center">Step 4: Saving Training Data </h2>')
+            gr.HTML('<p align="left">This button store the prompt for creating the python code and the generated script.</p>')
+            gr.HTML('<p align="left">This sample will be used for fine tuning a Davinci Model (gpt 3.5) in OpenAi.</p>')
+            btn_save_sample = gr.Button("Save Sample")
+            text_save_sample_result = gr.Textbox(label="Save Sample Result")
             
             # Edit Code
             gr.HTML('<h2 align="center">Step 5: Download Python Code </h2>')
@@ -755,74 +831,75 @@ with gr.Blocks() as demo:
             msg = gr.Textbox(label="Prompt")
             with gr.Accordion(label="Settings",open=False):
                 system_context = gr.Textbox(label="System Context", lines=2, value="A conversation between a user and an LLM-based AI python coding assistant. The assistant gives helpful, honest, and precise answers. The assistant must act as a programmer.")
-            btn = gr.Button("Submit")
-            clear = gr.ClearButton(components=[msg, chatbot], value="Clear console")
+            with gr.Row():
+                with gr.Column():
+                    btn = gr.Button("Submit")
+                with gr.Column():
+                    clear = gr.ClearButton(components=[msg, chatbot], value="Clear console")
+            
+    with gr.Row():
+        with gr.Column():
+            
+            gr.HTML('<h2 align="center">Step 7: Addditional Task. Use Fine-Tuned Model </h2>')
+            gr.HTML('<p align="center">Base Model: Davinci (GPT-3.5)</p>')
+            
+            with gr.Row():
+                with gr.Column():
+                    gr.HTML('<h2 align="center">Step 7.1: Training Model</h2>')
+                    btn_start_train = gr.Button("Start Training Model")
+                    btn_follow_train = gr.Button("Get Training Status")
+                    text_follow_train_result = gr.Textbox(label="Training Status")
+                with gr.Column():
+                    gr.HTML('<h2 align="center">Step 7.1: Using Model</h2>')
+                    btn_refresh_models = gr.Button("Refresh Models List")
+                    models_dropdown = gr.Dropdown(models_list,multiselect=False,label='Fine-Tuned LLM Model')
+                    btn_use_model = gr.Button("Use This Model")
+                    text_model_select_result = gr.Textbox(label="Model Selection Status")
+            with gr.Row():    
+                with gr.Column():
+                    # Chatbot
+                    gr.HTML('<h2 align="center">Step 6: Advanced Options </h2>')
+                    gr.HTML('<b align="left">This is a chatbot powered by OpenAI GPT 3.5 so it can help you to editing the code with AI Assistance. The Table Analysis and the Generated Python Code have been loaded to this assistant.</p>')
+                    chatbot = gr.Chatbot(height=446, label='Chatbot') #just to fit the notebook
+                    msg = gr.Textbox(label="Prompt")
+                    with gr.Accordion(label="Settings",open=False):
+                        system_context = gr.Textbox(label="System Context", lines=2, value="A conversation between a user and an LLM-based AI python coding assistant. The assistant gives helpful, honest, and precise answers. The assistant must act as a programmer.")
+                    with gr.Row():
+                        with gr.Column():
+                            btn = gr.Button("Submit")
+                        with gr.Column():
+                            clear = gr.ClearButton(components=[msg, chatbot], value="Clear console")
             
     # Actions
+    
+    # Transform tables
     btn_analyse.click(tables_analysis, inputs=None, outputs=[data_proposal,system_context])
     chk_analysis.change(feedback_analysis,inputs=chk_analysis, outputs=None)
-
+    
+    # Generate python code
     btn_python_code.click(generate_python_code,inputs=None,outputs=text_python_code)
     chk_python_code.change(feedback_python_code,inputs=chk_python_code, outputs=python_code_result)
 
     btn_download_python.click(download_python_code,inputs=None,outputs=download_python)
-
+    
+    # Save training samples
+    btn_save_sample.click(save_training_sample,inputs=None,outputs=text_save_sample_result)
+    
+    # Chatbot (Advanced Options)
     btn.click(respond, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot])
     msg.submit(respond, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot]) #Press enter to submit
+    
+    # Start and Monitoring Training Jobs
+    btn_start_train.click(start_training_model,inputs=None,outputs=text_follow_train_result)
+    btn_follow_train.click(get_training_status,inputs=None,outputs=text_follow_train_result)
+    
+    # Selecting Models
+    btn_refresh_models.click(get_models_list,inputs=None,outputs=None)
+    btn_use_model.click(load_fine_tuned_model_bot,inputs=models_dropdown,outputs=text_model_select_result)
+    
 
 gr.close_all()
 demo.queue().launch(share=False, server_port=int(os.environ['GRADIO_SERVER_PORT']))
 
 
-# ## Generating Examples for Further Training GPT Model
-
-# In[51]:
-
-
-import pickle
-
-
-# In[93]:
-
-
-number_task = '12'
-
-with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'wb') as handle:
-    pickle.dump({
-        'prompt':get_python_code_prompt(),
-        'completion':python_text
-    }, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-
-# In[94]:
-
-
-with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'rb') as handle:
-    bb = pickle.load(handle)
-
-
-# In[95]:
-
-
-print(bb['prompt'])
-
-
-# In[96]:
-
-
-print(bb['completion'])
-
-
 # ## END
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
