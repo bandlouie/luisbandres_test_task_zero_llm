@@ -460,7 +460,7 @@ def extract_data_attributes(analysis_chain):
 #     # except Exception as e:
 #     #     print(f"{e}")
 #     #     return None
-# In[56]:
+# In[92]:
 
 
 def get_python_code_prompt():
@@ -468,6 +468,7 @@ def get_python_code_prompt():
     # try:
     map_process = extract_data_attributes(execution_chain)
     cat_list = sum([d['categories_list'] for d in map_process['categories_match']],[])
+    cat_headers = ', '.join([d['table_header'] for d in map_process['categories_match'] if len(d['categories_list'])>0])
     return f"""
     You will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>.
     You will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>.
@@ -476,15 +477,19 @@ def get_python_code_prompt():
 
     Create a python code for transforming the initial_table into template_table so initial_table will be indetical to template_table. Python Code must handle exceptions at each step: Python Code must end without errors.
     
-    initial_table must be loaded from csv file as a dataframe of only strings using pandas 1.3.1. and python 3.9
+    initial_table must be loaded from csv file as a dataframe of only strings using pandas 1.3.1. and python 3.9. change name to dataframe.
     
     template_table is only a markdown (is not a csv file) that only exists in this prompt as a guide.
     
     Headers must be renamed according to << HEADERS MAPPING >> 
     
-    All the rows of columns of dataframe must look like than their columns in template_table: must have the same punctuation and letter cases
+    All the rows of columns of renamed dataframe must look like than their columns in template_table: must have the same punctuation and letter cases
     
-    Replace each value in the categories columns with the most similar (difflib.get_close_matches()) item from the list in << CATEGORIES ALLOWED >>>. When calculate similarity, not use index [0] if difflib.get_close_matches() returns an empty list. In that case use the original category value. All resulting categories columns must be string columns. The python code needs to replace each value in the categorical columns of the dataframe with the most similar item from list in the << CATEGORIES ALLOWED >>>. All categories must be kept as strings always.
+    Transform all the rows of columns (for serials) of renamed dataframe so they look like than their columns (for serials) in template_table.
+    
+    Transform the string columns with dates in dataframe to have the same date format than template_table. Consider the previous steps.
+    
+    Replace each value in the categories columns ({cat_headers}) with the most similar (difflib.get_close_matches()) item from the list in << CATEGORIES ALLOWED >>>. When calculate similarity, not use index [0] if difflib.get_close_matches() returns an empty list. In that case use the original category value. All resulting categories columns must be string columns. The python code needs to replace each value in the categorical columns of the renamed dataframe with the most similar item from list in the << CATEGORIES ALLOWED >>>. All categories must be kept as strings always.
     
     Only keep the same columns than template_table.
 
@@ -771,19 +776,13 @@ demo.queue().launch(share=False, server_port=int(os.environ['GRADIO_SERVER_PORT'
 
 # ## Generating Examples for Further Training GPT Model
 
-# In[27]:
-
-
-dfdf
-
-
 # In[51]:
 
 
 import pickle
 
 
-# In[57]:
+# In[93]:
 
 
 number_task = '12'
@@ -795,20 +794,20 @@ with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'wb') 
     }, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-# In[58]:
+# In[94]:
 
 
 with open(f'./additional_task/training_data/sample_{number_task}.pickle', 'rb') as handle:
     bb = pickle.load(handle)
 
 
-# In[59]:
+# In[95]:
 
 
 print(bb['prompt'])
 
 
-# In[60]:
+# In[96]:
 
 
 print(bb['completion'])
