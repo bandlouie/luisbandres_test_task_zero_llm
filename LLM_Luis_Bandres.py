@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import os
@@ -24,7 +24,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 
-# In[2]:
+# In[ ]:
 
 
 warnings.filterwarnings('ignore')
@@ -33,7 +33,7 @@ from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv()) # read local .env file
 
 
-# In[3]:
+# In[ ]:
 
 
 llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
@@ -43,7 +43,7 @@ llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
 # 
 # It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
 
-# In[4]:
+# In[ ]:
 
 
 load_template_file_prompt = ChatPromptTemplate.from_template("""
@@ -76,7 +76,7 @@ If there is not a markdown table in the input return an empty JSON object. Other
 """)
 
 
-# In[5]:
+# In[ ]:
 
 
 load_file_prompt = ChatPromptTemplate.from_template("""
@@ -114,7 +114,7 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[6]:
+# In[ ]:
 
 
 formating_header_prompt = ChatPromptTemplate.from_template("""
@@ -148,7 +148,7 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[7]:
+# In[ ]:
 
 
 table_proposal_prompt = ChatPromptTemplate.from_template("""
@@ -191,7 +191,7 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[8]:
+# In[ ]:
 
 
 formating_categories_prompt = ChatPromptTemplate.from_template("""
@@ -221,7 +221,7 @@ Return the updated  "simple_table" JSON object. Only return a JSON Object, no mo
 """)
 
 
-# In[9]:
+# In[ ]:
 
 
 categories_result_prompt = ChatPromptTemplate.from_template("""
@@ -264,7 +264,7 @@ Return only the JSON Object. Only return a JSON Object, no more!! The only valid
 """)
 
 
-# In[10]:
+# In[ ]:
 
 
 formating_dates_prompt = ChatPromptTemplate.from_template("""
@@ -292,7 +292,7 @@ Return only the JSON Object. Only return a JSON Object, no more!! The only valid
 """)
 
 
-# In[11]:
+# In[ ]:
 
 
 formating_strings_prompt = ChatPromptTemplate.from_template("""
@@ -324,7 +324,7 @@ Return the updated "table_dates_result" JSON object. Only return a JSON Object, 
 """)
 
 
-# In[12]:
+# In[ ]:
 
 
 chain_template_load = LLMChain(llm=llm, prompt=load_template_file_prompt, 
@@ -353,7 +353,7 @@ chain_strings_formatting = LLMChain(llm=llm, prompt=formating_strings_prompt,
                     )
 
 
-# In[13]:
+# In[ ]:
 
 
 mapping_chain = SequentialChain(
@@ -368,7 +368,7 @@ mapping_chain = SequentialChain(
 # 
 # It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
 
-# In[14]:
+# In[ ]:
 
 
 def extract_data_attributes(analysis_chain):
@@ -388,7 +388,7 @@ def extract_data_attributes(analysis_chain):
     )
 
 
-# In[15]:
+# In[ ]:
 
 
 def get_python_code_prompt():
@@ -454,14 +454,14 @@ def get_python_code_prompt():
 
 # ## User Interface Functions
 
-# In[16]:
+# In[ ]:
 
 
 def markdown_to_html(md_table_string):
     return markdown.markdown(md_table_string, extensions=['markdown.extensions.tables'])
 
 
-# In[17]:
+# In[ ]:
 
 
 def process_csv(file, file_label):
@@ -490,7 +490,7 @@ def process_new_file(file):
     return process_csv(file, 'new_file')
 
 
-# In[18]:
+# In[ ]:
 
 
 _file_buffer = {
@@ -527,7 +527,7 @@ Input File:
     
 
 
-# In[19]:
+# In[ ]:
 
 
 anaylisis_check = False
@@ -536,7 +536,7 @@ def feedback_analysis(res):
     anaylisis_check = (res=='Yes')
 
 
-# In[20]:
+# In[ ]:
 
 
 python_text = ''
@@ -565,7 +565,7 @@ def generate_python_code():
     return python_text
 
 
-# In[21]:
+# In[ ]:
 
 
 python_code_check = False
@@ -582,7 +582,7 @@ def feedback_python_code(res):
         return "Please confirm Analysis at Step 2."
 
 
-# In[22]:
+# In[ ]:
 
 
 def save_training_sample():
@@ -599,7 +599,7 @@ def save_training_sample():
         return 'Python script must be generated first'
 
 
-# In[23]:
+# In[ ]:
 
 
 def download_python_code():
@@ -618,7 +618,7 @@ def download_python_code():
 
 # ## Additonal Task Interface
 
-# In[24]:
+# In[ ]:
 
 
 run_string_output = ''
@@ -670,7 +670,7 @@ def start_training_model():
     return run_string_output
 
 
-# In[25]:
+# In[ ]:
 
 
 def get_training_status():
@@ -682,7 +682,7 @@ def get_training_status():
         return f"{e}"
 
 
-# In[26]:
+# In[ ]:
 
 
 models_list = ['Press Refresh Button']
@@ -697,6 +697,8 @@ def get_models_list():
         models_list = models_list.sort_values(by='updated_at',ascending=False)
 
         models_list = models_list['fine_tuned_model'].tolist()
+        
+        models_list = [m for m in models_list if not (m is None)]
     except Exception as e:
         print(f"{e}")
         models_list = ['Refresh the UI']
@@ -708,7 +710,7 @@ _ = get_models_list()
 # ### Main Chatbot functions
 # There is a chatbot, here GPT memory handle the token usage.
 
-# In[27]:
+# In[ ]:
 
 
 memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=4000)
@@ -719,57 +721,90 @@ bot_conversation = ConversationChain(
 )
 
 
-# In[28]:
+# In[ ]:
 
 
 def respond(message, chat_history, instruction, temperature=0.0):  
     global is_new_chat
     try:
-        if is_new_chat:
-            memory.save_context({"output": python_text})
+        if (python_text is None) | (python_text==''):
+            chat_history.append((message, 'You need to Generate the Python Code in Step 3. If it does, press again "Generate" in Step 3'))
+            return message, chat_history
+        if is_new_chat & (not (python_text is None)) & (python_text!=''):
+            memory.save_context(inputs = {'prompt':get_python_code_prompt()},
+                                outputs={'completion':python_text})
             is_new_chat = False
-        else:
-            prompt = message
         bot_message = bot_conversation.predict(input=message)
         chat_history.append((message, bot_message))
         return "", chat_history
     except Exception as e:
         print(f"{e}")
+        chat_history.append((message, 'Somehting went wrong. Refresh your browser. If the issue persists, restart the app.'))
+        return message, chat_history
 
 
-# ### Addtional Task: Main Chatbot functions
-# There is the chatbot for using the fine-tuned model.
-
-# In[29]:
+# In[ ]:
 
 
-memory_fine_tuned = None
-fine_tuned_bot_conversation = None
+def respond_wrapper(message, chat_history, instruction, temperature=0.0):
+    return respond(message, chat_history, instruction, temperature)
+
+
+# ### Addtional Task: Fine-Tuning functions
+# There is the completion task for using the fine-tuned model.
+
+# In[ ]:
+
+
 selected_model_llm = None
 def load_fine_tuned_model_bot(model_name):
-    global memory_fine_tuned
-    global fine_tuned_bot_conversation
     global selected_model_llm
+    global python_text
     try:
-        selected_model_llm = ChatOpenAI(model=model_name, temperature=0.0)
-        memory_fine_tuned = ConversationTokenBufferMemory(llm=selected_model_llm, max_token_limit=2048)
-        fine_tuned_bot_conversation = ConversationChain(
-            llm=selected_model_llm, 
-            verbose=False,
-            memory=memory_fine_tuned
-        )
+        selected_model_llm = OpenAI(model=model_name, temperature=0.0)
         return model_name
     except Exception as e:
         print(f"{e}")
-        # memory_fine_tuned = None
-        # fine_tuned_bot_conversation = None
-        # selected_model_llm = None
-        return f"[ERROR] Not selected model {model_name} because of: {e}"
+        selected_model_llm = None
+        return f"[ERROR] Not selected model {model_name} or invalid model: {e}"
+
+
+# In[ ]:
+
+
+text_completion = ''
+def fine_tuned_completion():
+    global text_completion
+    try:
+        prompt_load = get_python_code_prompt()
+        if text_completion == '':
+            text_completion = ("="*20) + "\nPROMPT\n" + ("="*20) + "\n\n" + prompt_load + "\n\n" + ("="*20) + "\nCOMPLETION\n" + ("="*20) + "\n\n"
+    except Exception as e:
+        print(f"{e}")
+        return "You need to Transform Table First (Step 2)."
+    try:
+        text_for_llm = [t for t in text_completion.split(' ') if len(t.replace(' ',''))>0]
+        text_for_llm = ' '.join(text_for_llm[-1900:])
+        generated_completion = selected_model_llm(text_for_llm)
+        text_completion = text_completion + '\n\n' + generated_completion
+        return text_completion
+    except Exception as e:
+        print(f"{e}")
+        return "You need to choose a model first!"
+
+
+# In[ ]:
+
+
+def fine_tuned_clear_completion():
+    global text_completion
+    text_completion = ''
+    return ''
 
 
 # ### Gradio Launch
 
-# In[30]:
+# In[ ]:
 
 
 with gr.Blocks() as demo:
@@ -809,7 +844,7 @@ with gr.Blocks() as demo:
             # Saving Training Data
             gr.HTML('<h2 align="center">Step 4: Saving Training Data </h2>')
             gr.HTML('<p align="left">This button store the prompt for creating the python code and the generated script.</p>')
-            gr.HTML('<p align="left">This sample will be used for fine tuning a Davinci Model (gpt 3.5) in OpenAi.</p>')
+            gr.HTML('<p align="left">This sample will be used for fine tuning a Davinci Model (gpt 3.5) in OpenAi (Step 7).</p>')
             btn_save_sample = gr.Button("Save Sample")
             text_save_sample_result = gr.Textbox(label="Save Sample Result")
             
@@ -836,12 +871,12 @@ with gr.Blocks() as demo:
                     btn = gr.Button("Submit")
                 with gr.Column():
                     clear = gr.ClearButton(components=[msg, chatbot], value="Clear console")
-            
+
+    # Addditional Task
     with gr.Row():
         with gr.Column():
-            
-            gr.HTML('<h2 align="center">Step 7: Addditional Task. Use Fine-Tuned Model </h2>')
-            gr.HTML('<p align="center">Base Model: Davinci (GPT-3.5)</p>')
+            gr.HTML('<br><br><hr class="solid"><br><br>')
+            gr.HTML('<h2 align="center">Step 7: Additional Task. Use Fine-Tuned Model </h2>')
             
             with gr.Row():
                 with gr.Column():
@@ -850,25 +885,22 @@ with gr.Blocks() as demo:
                     btn_follow_train = gr.Button("Get Training Status")
                     text_follow_train_result = gr.Textbox(label="Training Status")
                 with gr.Column():
-                    gr.HTML('<h2 align="center">Step 7.1: Using Model</h2>')
+                    gr.HTML('<h2 align="center">Step 7.2: Loading Model</h2>')
                     btn_refresh_models = gr.Button("Refresh Models List")
                     models_dropdown = gr.Dropdown(models_list,multiselect=False,label='Fine-Tuned LLM Model')
                     btn_use_model = gr.Button("Use This Model")
                     text_model_select_result = gr.Textbox(label="Model Selection Status")
-            with gr.Row():    
+    with gr.Row():
+        with gr.Column():
+            gr.HTML('<h2 align="center">Step 7.3: Make Inferences</h2>')
+            gr.HTML('<p> This task uses the selected Fine-Tuned Model for completing the prompt used in Step 3 for Generated Python Code</p>')
+            with gr.Row():
                 with gr.Column():
-                    # Chatbot
-                    gr.HTML('<h2 align="center">Step 6: Advanced Options </h2>')
-                    gr.HTML('<b align="left">This is a chatbot powered by OpenAI GPT 3.5 so it can help you to editing the code with AI Assistance. The Table Analysis and the Generated Python Code have been loaded to this assistant.</p>')
-                    chatbot = gr.Chatbot(height=446, label='Chatbot') #just to fit the notebook
-                    msg = gr.Textbox(label="Prompt")
-                    with gr.Accordion(label="Settings",open=False):
-                        system_context = gr.Textbox(label="System Context", lines=2, value="A conversation between a user and an LLM-based AI python coding assistant. The assistant gives helpful, honest, and precise answers. The assistant must act as a programmer.")
-                    with gr.Row():
-                        with gr.Column():
-                            btn = gr.Button("Submit")
-                        with gr.Column():
-                            clear = gr.ClearButton(components=[msg, chatbot], value="Clear console")
+                    gr.HTML('<p> Click on "Make Completion" any time you want for comleting the texts.</p>')
+                    btn_model_completion = gr.Button("Make Completion")
+                    btn_clear_completion = gr.Button("Clear")
+                with gr.Column():
+                    text_model_completion = gr.Textbox(label="Completion Result",lines=30)
             
     # Actions
     
@@ -886,17 +918,20 @@ with gr.Blocks() as demo:
     btn_save_sample.click(save_training_sample,inputs=None,outputs=text_save_sample_result)
     
     # Chatbot (Advanced Options)
-    btn.click(respond, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot])
-    msg.submit(respond, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot]) #Press enter to submit
+    btn.click(respond_wrapper, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot])
+    msg.submit(respond_wrapper, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot])
     
-    # Start and Monitoring Training Jobs
+    # Fine-Tuning: Start and Monitoring Training Jobs
     btn_start_train.click(start_training_model,inputs=None,outputs=text_follow_train_result)
     btn_follow_train.click(get_training_status,inputs=None,outputs=text_follow_train_result)
     
-    # Selecting Models
+    # Fine-Tuning: Selecting Models
     btn_refresh_models.click(get_models_list,inputs=None,outputs=None)
     btn_use_model.click(load_fine_tuned_model_bot,inputs=models_dropdown,outputs=text_model_select_result)
     
+    # Fine-Tuning: Make completion
+    btn_model_completion.click(fine_tuned_completion,inputs=None,outputs=text_model_completion)
+    btn_clear_completion.click(fine_tuned_clear_completion,inputs=None,outputs=text_model_completion)
 
 gr.close_all()
 demo.queue().launch(share=False, server_port=int(os.environ['GRADIO_SERVER_PORT']))
