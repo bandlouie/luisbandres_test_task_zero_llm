@@ -1,0 +1,12 @@
+Date_Policy,Full_Name,Insurance_Plan,PolicyID,PremiumUSD,Dept,Job_Title,Policy_Start,FullName,InsuranceType,PolicyNum,MonthlyCost
+05/01/2023,John Doe,Gold Plan,AB12345,150,IT,Software Engineer,05/01/2023,John Doe,Gold,AB12345,150
+05/02/2023,Jane Smith,Silver Plan,CD67890,100,HR,HR Manager,05/02/2023,Jane Smith,Silver,CD67890,100
+05/03/2023,Michael Brown,Bronze Plan,EF10111,50,Marketing,Marketing Coordinator,05/03/2023,Michael Brown,Bronze,EF10111,50
+05/04/2023,Alice Johnson,Gold Plan,GH12121,150,Finance,Financial Analyst,05/04/2023,Alice Johnson,Gold,GH12121,150
+05/05/2023,Bob Wilson,Silver Plan,IJ13131,100,Sales,Sales Executive,05/05/2023,Bob Wilson,Silver,IJ13131,100
+05/06/2023,Carol Martinez,Bronze Plan,KL14141,50,Operations,Operations Manager,05/06/2023,Carol Martinez,Bronze,KL14141,50
+05/07/2023,David Anderson,Gold Plan,MN15151,150,Legal,Attorney,05/07/2023,David Anderson,Gold,MN15151,150
+06/02/2023,Luis Bandres,Gold Plan,LB19461,100,IT,AI Engineer,06/02/2023,Luis Bandres,Gold,LB19461,100
+05/08/2023,Eva Thomas,Silver Plan,OP16161,100,Product,Product Manager,05/08/2023,Eva Thomas,Silver,OP16161,100
+05/09/2023,Frank Jackson,Bronze Plan,QR17171,50,Engineering,Engineer,05/09/2023,Frank Jackson,Bronze,QR17171,50
+05/10/2023,Grace White,Gold Plan,ST18181,150,Design,Graphic Designer,05/10/2023,Grace White,Gold,ST18181,150
