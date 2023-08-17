@@ -1,0 +1,9 @@
+Date,EmployeeName,InsurancePlan,PolicyNumber,Premium
+05-01-2023,John Doe,Gold,AB_12345,150.000
+05-02-2023,Jane Smith,Silver,CD_67890,100.000
+05-03-2023,Michael Brown,Bronze,EF_10111,50.000
+05-04-2023,Alice Johnson,Gold,AB_12121,150.000
+05-05-2023,Bob Wilson,Silver,CD_13131,100.000
+05-06-2023,Carol Martinez,Bronze,EF_14141,50.000
+05-07-2023,David Anderson,Gold,AB_15151,150.000
+05-08-2023,Eva Thomas,Silver,CD_16161,100.000

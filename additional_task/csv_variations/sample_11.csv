@@ -1,0 +1,12 @@
+PolicyDate,Name,PlanType,PolicyID,Premium,Dept,Role,StartDate,FullName,Plan,PolicyCode,MonthlyFee
+2023-05-01,John Doe,Gold,AB12345,150.00,IT,Software Engineer,2023-05-01,John Doe,Gold,AB12345,150.00
+2023-05-02,Jane Smith,Silver,CD67890,100.00,HR,HR Manager,2023-05-02,Jane Smith,Silver,CD67890,100.00
+2023-05-03,Michael Brown,Bronze,EF10111,50.00,Marketing,Marketing Coordinator,2023-05-03,Michael Brown,Bronze,EF10111,50.00
+2023-05-04,Alice Johnson,Gold,GH12121,150.00,Finance,Financial Analyst,2023-05-04,Alice Johnson,Gold,GH12121,150.00
+2023-05-05,Bob Wilson,Silver,IJ13131,100.00,Sales,Sales Executive,2023-05-05,Bob Wilson,Silver,IJ13131,100.00
+2023-05-06,Carol Martinez,Bronze,KL14141,50.00,Operations,Operations Manager,2023-05-06,Carol Martinez,Bronze,KL14141,50.00
+2023-05-07,David Anderson,Gold,MN15151,150.00,Legal,Attorney,2023-05-07,David Anderson,Gold,MN15151,150.00
+2023-06-02,Luis Bandres,Gold,LB19461,100.00,IT,AI Engineer,2023-06-02,Luis Bandres,Gold,LB19461,100.00
+2023-05-08,Eva Thomas,Silver,OP16161,100.00,Product,Product Manager,2023-05-08,Eva Thomas,Silver,OP16161,100.00
+2023-05-09,Frank Jackson,Bronze,QR17171,50.00,Engineering,Engineer,2023-05-09,Frank Jackson,Bronze,QR17171,50.00
+2023-05-10,Grace White,Gold,ST18181,150.00,Design,Graphic Designer,2023-05-10,Grace White,Gold,ST18181,150.00
