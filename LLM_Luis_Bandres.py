@@ -934,7 +934,7 @@ with gr.Blocks() as demo:
     btn_clear_completion.click(fine_tuned_clear_completion,inputs=None,outputs=text_model_completion)
 
 gr.close_all()
-demo.queue().launch(share=False, server_port=int(os.environ['GRADIO_SERVER_PORT']))
+demo.queue().launch(share=False, server_name="0.0.0.0", server_port=int(os.environ['GRADIO_SERVER_PORT']))
 
 
 # ## END
