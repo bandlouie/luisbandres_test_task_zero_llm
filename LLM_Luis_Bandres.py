@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import os
@@ -24,7 +24,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 
-# In[ ]:
+# In[2]:
 
 
 warnings.filterwarnings('ignore')
@@ -33,17 +33,42 @@ from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv()) # read local .env file
 
 
-# In[ ]:
+# In[3]:
 
 
 llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
 
 
-# ## LLM Mapping Chain
+# ## STEP 2: Transformations using LLM
 # 
-# It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
+# This step does not require historical data for completion, making it token-efficient.
+# 
+# The process employs Sequential Chains for LangChain, enabling the parsing of multiple inputs and outputs, akin to Directed Acyclic Graphs (DAGs).
+# 
+# In these Sequential Chains, individual chains require only the outputs from previous chains. They do not necessitate observation of the previous prompts' history.
 
-# In[ ]:
+# ### 2.1 Prompt: Extraction of Metadata from Template
+# 
+# In this step, the system extracts metadata from the provided template. The result of this process is a JSON object with the following structure:
+# 
+# 
+# ```json
+# {
+#     "template_metadata": [
+#         {
+#             "header": string, // name of the column. If the input does not contain a header suggest a name for the column based on its data.
+#             "type": string, // type of the data column of the markdown file in the input. 
+#             "sample": // put a not null samble of the column. This sample should have the most common value which is not null.
+#             "categorical": bool // check if the column is categorical (true) or not categorical (false).
+#             "categories_list": [] // list of the unique values if the column is categorical.
+#             "date_format": // null except if type is date suggest SQL DATE FORMAT for converting the column values to date.
+#             "description": string // descrption of this column based only on its data.
+#         }
+#     ]
+# }
+# ```
+
+# In[4]:
 
 
 load_template_file_prompt = ChatPromptTemplate.from_template("""
@@ -76,7 +101,28 @@ If there is not a markdown table in the input return an empty JSON object. Other
 """)
 
 
-# In[ ]:
+# ### 2.2 Prompt: Extraction of Metadata from Input File
+# 
+# In this step, the system extracts metadata from the specified input file. The result of this process is a JSON object with the following structure:
+# 
+# 
+# ```json
+# {
+#     "table_name": string, // Name of the input table
+#     "file_metadata": [
+#         {
+#             "header": string, // name of the column. If the input does not contain a header suggest a name for the column based on its data.
+#             "type": string, // type of the data column of the markdown file in the input. 
+#             "sample": // put a not null samble of the column. This sample should have the most common value which is not null.
+#             "date_format": string, // null except if type is date suggest SQL DATE FORMAT for converting the column values to date.
+#             "description": string // description of this column based only on its data.
+#         }
+#     ]
+#     "table" : string \ the complete markdown table in the input
+# }
+# ```
+
+# In[5]:
 
 
 load_file_prompt = ChatPromptTemplate.from_template("""
@@ -114,7 +160,26 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[ ]:
+# ### 2.3 Prompt: Infering Map for Transforming Headers from Input Table to Template Table
+# 
+# In this step, the system maps the headers of the input table to the corresponding headers in the template table. This mapping is based on the following metadata:
+#     * Data types
+#     * Samples of both tables
+#     * Description
+# 
+# The result of this process is a JSON object with the following structure:
+# 
+# ```json
+# "header_match": [
+#     {
+#     "table_header": string, // header of "input file" table most similar to the N header of "template" table
+#     "template_header": string, // header of "template" table
+#     }
+# ],
+# 
+# ```
+
+# In[6]:
 
 
 formating_header_prompt = ChatPromptTemplate.from_template("""
@@ -148,7 +213,30 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[ ]:
+# ### 2.4 Prompt: Renaming Columns Based on Previously Inferred Headers Map
+# 
+# In this step, the system modifies the markdown table of the input file based on the previously inferred headers map. The result of this process is a JSON object with the following structure:
+# 
+# ```json
+# {
+#     "table_name": string, // Name of the input table
+#     "file_metadata": [
+#         {
+#             "header": string, // Name of the column
+#             "type": string, // Type of the data in the column of the markdown file in the input
+#             "sample": // A non-null sample of the column. This sample should represent the most common value that is not null
+#             "categorical": bool, // Indicates if the column is categorical (true) or not categorical (false)
+#             "categories_list": [], // List of the unique values if the column is categorical
+#             "date_format": null, // Except if type is date, suggest SQL DATE FORMAT for converting the column values to date
+#             "description": string // Description of this column based solely on its data
+#         }
+#     ],
+#     "modified_table": string, // The updated markdown table
+#     "template_metadata": {} // The JSON Object of the template metadata
+# }
+# ```
+
+# In[7]:
 
 
 table_proposal_prompt = ChatPromptTemplate.from_template("""
@@ -191,7 +279,36 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 """)
 
 
-# In[ ]:
+# ### 2.5 Prompt: Mapping Categorical Columns
+# 
+# In this step, the system identifies the corresponding categorical columns between the input file and the template. Additionally, the system returns the unique value of each template's categorical column. The result of this process is a JSON object with the following structure:
+# 
+# ```json
+# {
+#     "table_name": string, //  Name of the input table
+#     "file_metadata": [
+#         {
+#             "header": string, // Name of the column
+#             "type": string, // Type of the data in the column of the markdown file in the input
+#             "sample": // A non-null sample of the column. This sample should represent the most common value that is not null
+#             "categorical": bool, // Indicates if the column is categorical (true) or not categorical (false)
+#             "categories_list": [], // List of the unique values if the column is categorical
+#             "date_format": null, // Except if type is date, suggest SQL DATE FORMAT for converting the column values to date
+#             "description": string // Description of this column based solely on its data
+#         }
+#     ],
+#     "modified_table": string, // The updated markdown table
+#     "template_metadata": {}, // The JSON object of the template metadata
+#     "categories_match": [
+#         {
+#             "categories_list": string, // List of categories in template table
+#             "table_header": string, // Header of markdown table in input table most similar to the N header of tempalte table
+#         }
+#     ]
+# }
+# ```
+
+# In[8]:
 
 
 formating_categories_prompt = ChatPromptTemplate.from_template("""
@@ -221,7 +338,40 @@ Return the updated  "simple_table" JSON object. Only return a JSON Object, no mo
 """)
 
 
-# In[ ]:
+# ### 2.6 Prompt: Transforming Categorical Columns Based on Previously Inferred Categorical Map
+# 
+# In this step, the system modifies the markdown table of the input file based on the categorical columns identified in the previous step. 
+# 
+# The objective is to replace each value in the categorical columns of the input table with the most similar item from the "categories_list" of each corresponding categorical column in the template table.
+# 
+# The result of this process is a JSON object with the following structure:
+# 
+# ```json
+# {
+#     "table_name": string, // Name of the input table
+#     "file_metadata": [
+#         {
+#             "header": string, // Name of the column
+#             "type": string, // Type of the data in the column of the markdown file in the input
+#             "sample": // A non-null sample of the column. This sample should represent the most common value that is not null
+#             "categorical": bool, // Indicates if the column is categorical (true) or not categorical (false)
+#             "categories_list": [], // List of the unique values if the column is categorical
+#             "date_format": null, // Except if type is date, suggest SQL DATE FORMAT for converting the column values to date
+#             "description": string // Description of this column based solely on its data
+#         }
+#     ],
+#     "table": string, // The updated markdown table with correct values for categorical columns
+#     "template_metadata": {}, // The JSON object of the template metadata
+#     "categories_match": [
+#         {
+#             "categories_list": string, // List of categories in the template table
+#             "table_header": string, // Header of markdown table in the input table most similar to the N header of the template table
+#         }
+#     ]
+# }
+# 
+
+# In[9]:
 
 
 categories_result_prompt = ChatPromptTemplate.from_template("""
@@ -264,7 +414,21 @@ Return only the JSON Object. Only return a JSON Object, no more!! The only valid
 """)
 
 
-# In[ ]:
+# ### 2.7 Prompt: Setting Date Formats
+# 
+# In this step, the system formats the date columns in the input table according to the date format specified in the template table. 
+# 
+# The result of this process is a JSON object with the following structure:
+# 
+# ```json
+# {
+#     "table_name": string, // Name of the input table
+#     "table": string, // The updated markdown table
+#     "template_metadata": {} // The JSON object of the template metadata
+# }
+# ```
+
+# In[10]:
 
 
 formating_dates_prompt = ChatPromptTemplate.from_template("""
@@ -292,7 +456,22 @@ Return only the JSON Object. Only return a JSON Object, no more!! The only valid
 """)
 
 
-# In[ ]:
+# ### 2.8 Prompt: Setting String Formats
+# 
+# In this step, the system formats the string columns in the input table according to the string format of their corresponding columns in the template table.
+# 
+# The result of this process is a JSON object that contains the modified markdown input table, and it adds the following information:
+# 
+# ```json
+# "strings_match": [
+#     {
+#         "selected_sample": string, // Sample of data in the template table
+#         "table_header": string, // Header of the markdown input table most similar to the Nth header of the template table
+#     }
+# ],
+# ```
+
+# In[11]:
 
 
 formating_strings_prompt = ChatPromptTemplate.from_template("""
@@ -324,7 +503,9 @@ Return the updated "table_dates_result" JSON object. Only return a JSON Object, 
 """)
 
 
-# In[ ]:
+# ### 2.9 STEP: Prompt Chain
+
+# In[12]:
 
 
 chain_template_load = LLMChain(llm=llm, prompt=load_template_file_prompt, 
@@ -353,7 +534,7 @@ chain_strings_formatting = LLMChain(llm=llm, prompt=formating_strings_prompt,
                     )
 
 
-# In[ ]:
+# In[13]:
 
 
 mapping_chain = SequentialChain(
@@ -364,11 +545,29 @@ mapping_chain = SequentialChain(
 )
 
 
-# ## LLM Coding Chain
+# ### 2.10 STEP: Final Result
 # 
-# It doesn't need history for completion. Therefore, is token-efficiente and it doesn't require the memory of GPT.
+# The result of "STEP 2: Transformation using LLM" is a markdown table that displays the transformed input table, formatted to resemble the template table.
+# 
+# This markdown serves two primary objectives:
+# 
+#    1) To provide a visual aid for the user, enabling them to assess whether the transformation is acceptable.
+#    
+#    2) To offer guidance for "STEP 3: Generate Python Code" regarding the final result that the generated Python script must achieve in order to transform the input file appropriately.
+# 
 
-# In[ ]:
+# ## STEP 3: Generate Python Code
+# 
+# In this step, a Python script is generated. The objective of the generated script is to transform the input table into the desired format, in accordance with the result of STEP 2
+# 
+# This process will utilize the previously extracted metadata and the desired table appearance of the input, as obtained from STEP 2.
+
+# ### STEP 3.1: Extracting Data Attributes
+# 
+# This step is token-efficient: the system utilizes stored metadata from the previous Sequential Chain of LangChain. This step does not require history concatenation (hcat) for completion. As a result, it is token-efficient and does not demand extra memory resources of GPT.
+# 
+
+# In[14]:
 
 
 def extract_data_attributes(analysis_chain):
@@ -388,82 +587,93 @@ def extract_data_attributes(analysis_chain):
     )
 
 
-# In[ ]:
+# ### STEP 3.2: PROMPT
+# 
+# The following prompt will be submitted for the generation of the Python code. The objective is to propose a Python script that is as precise as possible.
+# 
+# However, there is a possibility that the script may contain an error. In such cases, there is no cause for concern, as in STEP 4, the user will have access to a chatbot that facilitates the editing of the code with the assistance of GPT.
+# 
+
+# In[15]:
 
 
 def get_python_code_prompt():
     global execution_chain
-    # try:
-    map_process = extract_data_attributes(execution_chain)
-    cat_list = sum([d['categories_list'] for d in map_process['categories_match']],[])
-    cat_headers = ', '.join([d['table_header'] for d in map_process['categories_match'] if len(d['categories_list'])>0])
-    return f"""
-    You will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>.
-    You will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>.
-    You will be provided with a JSON object with headers mapping as << HEADERS MAPPING >>>
-    You will be provided with a list of allowed categories as << CATEGORIES ALLOWED >>>
+    try:
+        map_process = extract_data_attributes(execution_chain)
+        cat_list = sum([d['categories_list'] for d in map_process['categories_match']],[])
+        cat_headers = ', '.join([d['table_header'] for d in map_process['categories_match'] if len(d['categories_list'])>0])
+        return f"""
+        You will be provided with a initial_table in a markdown format as << INITIAL_TABLE >>.
+        You will be provided with a template_table in a markdown format as << TEMPLATE_TABLE >>.
+        You will be provided with a JSON object with headers mapping as << HEADERS MAPPING >>>
+        You will be provided with a list of allowed categories as << CATEGORIES ALLOWED >>>
 
-    Create a python code for transforming the initial_table into template_table so initial_table will be indetical to template_table. Python Code must handle exceptions at each step: Python Code must end without errors.
-    
-    initial_table must be loaded from csv file as a dataframe of only strings using pandas 1.3.1. and python 3.9. change name to dataframe.
-    
-    template_table is only a markdown (is not a csv file) that only exists in this prompt as a guide.
-    
-    Headers must be renamed according to << HEADERS MAPPING >> 
-    
-    All the rows of columns of renamed dataframe must look like than their columns in template_table: must have the same punctuation and letter cases
-    
-    Transform all the rows of columns (for serials) of renamed dataframe so they look like than their columns (for serials) in template_table.
-    
-    Transform the string columns with dates in dataframe to have the same date format than template_table. Consider the previous steps.
-    
-    Replace each value in the categories columns ({cat_headers}) with the most similar (difflib.get_close_matches()) item from the list in << CATEGORIES ALLOWED >>>. When calculate similarity, not use index [0] if difflib.get_close_matches() returns an empty list. In that case use the original category value. All resulting categories columns must be string columns. The python code needs to replace each value in the categorical columns of the renamed dataframe with the most similar item from list in the << CATEGORIES ALLOWED >>>. All categories must be kept as strings always.
-    
-    Only keep the same columns than template_table.
+        Create a python code for transforming the initial_table into template_table so initial_table will be indetical to template_table. Python Code must handle exceptions at each step: Python Code must end without errors.
 
-    Save the dataframe as csv file called "transformed_table".
+        initial_table must be loaded from csv file as a dataframe of only strings using pandas 1.3.1. and python 3.9. change name to dataframe.
 
-    << INITIAL_TABLE >>
-    ```markdown
-    {json.dumps(map_process['initial_table'])}
-    ```
+        template_table is only a markdown (is not a csv file) that only exists in this prompt as a guide.
 
-    << TEMPLATE_TABLE >>
-    ```markdown
-    {json.dumps(map_process['final_table'])}
-    ```
-        
-    << HEADERS MAPPING >>
-    ```json
-    {json.dumps(map_process['header_match'])}
-    ```
-    
-    << CATEGORIES ALLOWED >>>
-    ```json
-    {json.dumps(cat_list)}
-    ```
+        Headers must be renamed according to << HEADERS MAPPING >> 
 
-    << OUTPUT >>
-    You must return only a complete python script. Please avoid make extra comments, I need only the python script.
+        All the rows of columns of renamed dataframe must look like than their columns in template_table: must have the same punctuation and letter cases
+
+        Transform all the rows of columns (for serials) of renamed dataframe so they look like than their columns (for serials) in template_table.
+
+        Transform the string columns with dates in dataframe to have the same date format than template_table. Consider the previous steps.
+
+        Replace each value in the categories columns ({cat_headers}) with the most similar (difflib.get_close_matches()) item from the list in << CATEGORIES ALLOWED >>>. When calculate similarity, not use index [0] if difflib.get_close_matches() returns an empty list. In that case use the original category value. All resulting categories columns must be string columns. The python code needs to replace each value in the categorical columns of the renamed dataframe with the most similar item from list in the << CATEGORIES ALLOWED >>>. All categories must be kept as strings always.
+
+        Only keep the same columns than template_table.
+
+        Save the dataframe as csv file called "transformed_table".
+
+        << INITIAL_TABLE >>
+        ```markdown
+        {json.dumps(map_process['initial_table'])}
+        ```
+
+        << TEMPLATE_TABLE >>
+        ```markdown
+        {json.dumps(map_process['final_table'])}
+        ```
+
+        << HEADERS MAPPING >>
+        ```json
+        {json.dumps(map_process['header_match'])}
+        ```
+
+        << CATEGORIES ALLOWED >>>
+        ```json
+        {json.dumps(cat_list)}
+        ```
+
+        << OUTPUT >>
+        You must return only a complete python script. Please avoid make extra comments, I need only the python script.
 
     """
-    # except Exception as e:
-    #     print(f"{e}")
-    #     return None
+    except Exception as e:
+        print(f"{e}")
+        return f"There was an error. Ask to the user to try again and inform him/her about the following error: {e}"
 
 
 # ## User Interface Functions
 
-# In[ ]:
+# In[16]:
 
 
+# Converting Markdown Tables to HTML Tables
 def markdown_to_html(md_table_string):
     return markdown.markdown(md_table_string, extensions=['markdown.extensions.tables'])
 
 
-# In[ ]:
+# ### STEP 1: Load Data
+
+# In[17]:
 
 
+# Importing CSV Tables
 def process_csv(file, file_label):
     global _file_buffer
     
@@ -490,9 +700,12 @@ def process_new_file(file):
     return process_csv(file, 'new_file')
 
 
-# In[ ]:
+# ### STEP 2: Transformations using LLM
+
+# In[18]:
 
 
+# Executing Chain for Transforming Input Table
 _file_buffer = {
     'template':'',
     'new_file':'',
@@ -527,18 +740,22 @@ Input File:
     
 
 
-# In[ ]:
+# In[19]:
 
 
+# Check if generated table is ok
 anaylisis_check = False
 def feedback_analysis(res):
     global anaylisis_check
     anaylisis_check = (res=='Yes')
 
 
-# In[ ]:
+# ### STEP 3: Generate Python Code
+
+# In[20]:
 
 
+# Generate Python Code
 python_text = ''
 is_new_chat = True
 def generate_python_code():
@@ -565,9 +782,10 @@ def generate_python_code():
     return python_text
 
 
-# In[ ]:
+# In[21]:
 
 
+# Check if python code is ok
 python_code_check = False
 def feedback_python_code(res):
     global anaylisis_check
@@ -582,9 +800,22 @@ def feedback_python_code(res):
         return "Please confirm Analysis at Step 2."
 
 
-# In[ ]:
+# ### Step 4: Saving Training Data
+# 
+# Each time the user executes STEP 4, a new data sample is stored for subsequent training. The data sample is structured as follows:
+# 
+# ```json
+# {
+#     "prompt": "Current Prompt used in STEP 3 for generating Python Script",
+#     "completion": "Current Generated Python"
+# }
+# ```
+# STEP 7 will utilize this data sample for fine-tuning models using the OpenAI Command Line Interface (CLI).
+
+# In[22]:
 
 
+# Saving Training Data
 def save_training_sample():
     global python_text
     if (not (python_text is None)) & (python_text!=''):
@@ -599,9 +830,12 @@ def save_training_sample():
         return 'Python script must be generated first'
 
 
-# In[ ]:
+# ### Step 5: Download Python Code
+
+# In[23]:
 
 
+# Download Python Code
 def download_python_code():
     global anaylisis_check
     global python_code_check
@@ -616,11 +850,99 @@ def download_python_code():
         return filename
 
 
-# ## Additonal Task Interface
+# ### Step 6: Advanced Options
+# 
+# This feature provides a chatbot powered by OpenAI GPT 3.5, designed to assist users in editing the code with AI guidance. Both the Table Analysis and the Generated Python Code have been loaded into this assistant for reference and further manipulation.
+# 
+# Prerequisites:
+# 
+# 1) STEP 2.
+# 2) STEP 3.
+# 
 
-# In[ ]:
+# In[24]:
 
 
+# Limiting memory for always using the last 4,000 tokens.
+memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=4000)
+
+# Initializing conversation chain
+bot_conversation = ConversationChain(
+    llm=llm, 
+    verbose=False,
+    memory=memory
+)
+
+
+# In[25]:
+
+
+# Respoding function
+def respond(message, chat_history, instruction, temperature=0.0):  
+    global is_new_chat
+    try:
+        if (python_text is None) | (python_text==''):
+            chat_history.append((message, 'You need to Generate the Python Code in Step 3. If it does, press again "Generate" in Step 3'))
+            return message, chat_history
+        if is_new_chat & (not (python_text is None)) & (python_text!=''):
+            memory.save_context(inputs = {'prompt':get_python_code_prompt()},
+                                outputs={'completion':python_text})
+            is_new_chat = False
+        bot_message = bot_conversation.predict(input=message)
+        chat_history.append((message, bot_message))
+        return "", chat_history
+    except Exception as e:
+        print(f"{e}")
+        chat_history.append((message, 'Somehting went wrong. Refresh your browser. If the issue persists, restart the app.'))
+        return message, chat_history
+
+
+# In[26]:
+
+
+# Respoding wrapper for in-live modifications
+def respond_wrapper(message, chat_history, instruction, temperature=0.0):
+    return respond(message, chat_history, instruction, temperature)
+
+
+# # Additional Task Interface
+# 
+# ## Step 7: Additional Task - Use Fine-Tuned Model
+# 
+# ### Step 7.1: Training Model
+# 
+# This process employs the OpenAI CLI to initiate the training of a custom fine-tuned model for the recurring task of generating Python Code (as performed in STEP 3).
+# 
+# The model utilizes the data samples saved in STEP 4 from previous iterations, which are structured as follows:
+# 
+# ```json
+# {
+#     "prompt": "Prompt used in STEP 3 for generating Python Script 1 for Table 1",
+#     "completion": "Generated Python Script 1"
+# },
+# {
+#     "prompt": "Prompt used in STEP 3 for generating Python Script 2 for Table 2",
+#     "completion": "Generated Python Script 2"
+# },
+# {
+#     "prompt": "Prompt used in STEP 3 for generating Python Script 3 for Table 3",
+#     "completion": "Generated Python Script 3"
+# },
+# ...
+# ```
+# 
+# Each time the user executes STEP 4, a new data sample is stored for subsequent training.
+# 
+# ### Step 7.2: Loading Model
+# In this step, a specific fine-tuned model is selected and loaded.
+# 
+# ### Step 7.3: Make Inferences (Completion Task)
+# This part of the process employs the loaded model to generate a Python script using the current prompt produced in STEP 3 during the present session.
+
+# In[27]:
+
+
+# Training Model
 run_string_output = ''
 def start_training_model():
     global run_string_output
@@ -670,9 +992,10 @@ def start_training_model():
     return run_string_output
 
 
-# In[ ]:
+# In[28]:
 
 
+# Get training status
 def get_training_status():
     global run_string_output
     try:
@@ -682,9 +1005,12 @@ def get_training_status():
         return f"{e}"
 
 
-# In[ ]:
+# ### STEP 7.2: Loading Model
+
+# In[29]:
 
 
+# Refresh models list
 models_list = ['Press Refresh Button']
 def get_models_list():
     global models_list
@@ -707,55 +1033,10 @@ def get_models_list():
 _ = get_models_list()
 
 
-# ### Main Chatbot functions
-# There is a chatbot, here GPT memory handle the token usage.
-
-# In[ ]:
+# In[30]:
 
 
-memory = ConversationTokenBufferMemory(llm=llm, max_token_limit=4000)
-bot_conversation = ConversationChain(
-    llm=llm, 
-    verbose=False,
-    memory=memory
-)
-
-
-# In[ ]:
-
-
-def respond(message, chat_history, instruction, temperature=0.0):  
-    global is_new_chat
-    try:
-        if (python_text is None) | (python_text==''):
-            chat_history.append((message, 'You need to Generate the Python Code in Step 3. If it does, press again "Generate" in Step 3'))
-            return message, chat_history
-        if is_new_chat & (not (python_text is None)) & (python_text!=''):
-            memory.save_context(inputs = {'prompt':get_python_code_prompt()},
-                                outputs={'completion':python_text})
-            is_new_chat = False
-        bot_message = bot_conversation.predict(input=message)
-        chat_history.append((message, bot_message))
-        return "", chat_history
-    except Exception as e:
-        print(f"{e}")
-        chat_history.append((message, 'Somehting went wrong. Refresh your browser. If the issue persists, restart the app.'))
-        return message, chat_history
-
-
-# In[ ]:
-
-
-def respond_wrapper(message, chat_history, instruction, temperature=0.0):
-    return respond(message, chat_history, instruction, temperature)
-
-
-# ### Addtional Task: Fine-Tuning functions
-# There is the completion task for using the fine-tuned model.
-
-# In[ ]:
-
-
+# Loading selected model
 selected_model_llm = None
 def load_fine_tuned_model_bot(model_name):
     global selected_model_llm
@@ -769,9 +1050,21 @@ def load_fine_tuned_model_bot(model_name):
         return f"[ERROR] Not selected model {model_name} or invalid model: {e}"
 
 
-# In[ ]:
+# ### STEP 7.3: Make Inferences (Completion Task)
+# 
+# This task employs the selected Fine-Tuned Model to complete the same prompt that was used in STEP 3 for generating Python Code.
+# 
+# A "completion task" for a Language Model (LLM) typically involves generating additional text that logically or semantically continues from a given input text.
+# 
+# To expand the results, the user is required to press the "Make Completion" button. This action triggers the generation of more text based on the already generated text.
+# 
+# This functionality consistently utilizes the last 2048 generated tokens, in accordance with the limitations for Fine-Tuned Models as imposed by OpenAI.
+# 
+
+# In[31]:
 
 
+# Make completion
 text_completion = ''
 def fine_tuned_completion():
     global text_completion
@@ -793,20 +1086,24 @@ def fine_tuned_completion():
         return "You need to choose a model first!"
 
 
-# In[ ]:
+# In[32]:
 
 
+# Clear all generated text
 def fine_tuned_clear_completion():
     global text_completion
     text_completion = ''
     return ''
 
 
-# ### Gradio Launch
+# ### Gradio App
+# 
+# This application provides the user with a coherent interface for utilizing the LLM prompts.
 
-# In[ ]:
+# In[33]:
 
 
+# Gradio App
 with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
@@ -828,31 +1125,48 @@ with gr.Blocks() as demo:
 
         with gr.Column():
             # Analyse Data
-            gr.HTML('<h2 align="center">Step 2: Transform using LLM </h2>')
-            gr.HTML('<h3 align="left">Dont leave this page while processing.</h3>')
-            gr.HTML('<p align="left">This process could take 5 minutes approximately...</p>')
+            gr.HTML('<h2 align="center">Step 2: Transformations using LLM </h2>')
+            gr.HTML('<h3 align="left">Dont leave this page while processing. This process could take 5 minutes approximately...</h3>')
+            gr.HTML("""
+            <p align="justify">This step is token-efficient: it employs Sequential Chains for LangChain, enabling the parsing of multiple 
+            inputs and outputs, akin to Directed Acyclic Graphs (DAGs).In these Sequential Chains, individual chains require only the 
+            outputs from previous chains. They do not need observation of the previous prompts' history.
+            </p>
+            <p align="justify">The result of STEP 2 is a  table that displays the transformed input table, formatted to resemble the template table.
+            This table serves two primary objectives:</p>
+            <p align="justify">   1) To provide a visual aid for the user, enabling them to assess whether the transformation is acceptable.</p>
+            <p align="justify">   2) To offer guidance for "STEP 3: Generate Python Code" regarding the final result that the generated Python
+            script must achieve in order to transform the input file appropriately.</p>
+            """)
             btn_analyse = gr.Button("Transform Table")
             data_proposal = gr.outputs.HTML(label="Data Mapping Result")
             chk_analysis = gr.Radio(["Yes", "No"], label="Data was mapped correctly?")
 
             # Generating Code
             gr.HTML('<h2 align="center">Step 3: Generate Python Code </h2>')
+            gr.HTML("""
+            <p align="justify">In this step, a Python script is generated. The objective of the generated script is to transform the input table into the 
+            desired format, in accordance with the result of STEP 2: it will utilize the previously extracted metadata and the desired
+            table appearance of the input, as obtained from STEP 2.</p>
+            <p align="justify">This process is token-efficient: it utilizes stored metadata from the previous Sequential Chain of LangChain.
+            This step does not require history concatenation (hcat) for completion. As a result, it does not demand extra memory resources of GPT.</p>
+            """)
             btn_python_code = gr.Button("Generate")
             text_python_code = gr.Textbox(value="Please Generate Python Code",label="Python Code")
             chk_python_code = gr.Radio(["Yes", "No"], label="Python code is correct?")
             
             # Saving Training Data
             gr.HTML('<h2 align="center">Step 4: Saving Training Data </h2>')
-            gr.HTML('<p align="left">This button store the prompt for creating the python code and the generated script.</p>')
-            gr.HTML('<p align="left">This sample will be used for fine tuning a Davinci Model (gpt 3.5) in OpenAi (Step 7).</p>')
+            gr.HTML('<p align="justify">This button store the prompt for creating the python code and the generated script.</p>')
+            gr.HTML('<p align="justify">This sample will be used for fine tuning a Davinci Model (gpt 3.5) in OpenAi (Step 7).</p>')
             btn_save_sample = gr.Button("Save Sample")
             text_save_sample_result = gr.Textbox(label="Save Sample Result")
             
             # Edit Code
             gr.HTML('<h2 align="center">Step 5: Download Python Code </h2>')
-            gr.HTML('<h3 align="left">Requisites:</h3>')
-            gr.HTML('<p align="left">   * Step 2 must be confirmed.</p>')
-            gr.HTML('<p align="left">   * Step 3 must be confirmed.</p>')
+            gr.HTML('<h3 align="justify">Requisites:</h3>')
+            gr.HTML('<p align="justify">   * Step 2 must be confirmed (checkbox).</p>')
+            gr.HTML('<p align="justify">   * Step 3 must be confirmed (checkbox).</p>')
             python_code_result = gr.outputs.HTML(label="Result Python Code")
             btn_download_python = gr.Button("Save Code")
             download_python = gr.outputs.File(label="Generated Python Code")
@@ -861,7 +1175,13 @@ with gr.Blocks() as demo:
         with gr.Column():
             # Chatbot
             gr.HTML('<h2 align="center">Step 6: Advanced Options </h2>')
-            gr.HTML('<b align="left">This is a chatbot powered by OpenAI GPT 3.5 so it can help you to editing the code with AI Assistance. The Table Analysis and the Generated Python Code have been loaded to this assistant.</p>')
+            gr.HTML("""
+            <p align="justify">This feature provides a chatbot powered by OpenAI GPT 3.5, designed to assist users in editing the code with AI guidance. 
+            Both the Table Analysis and the Generated Python Code have been loaded into this assistant for reference and further manipulation.</p>
+            <p align="justify">Prerequisites:</p>
+            <p align="justify">   1) STEP 2 completed.</p>
+            <p align="justify">   2) STEP 3 completed.</p>
+            """)
             chatbot = gr.Chatbot(height=446, label='Chatbot') #just to fit the notebook
             msg = gr.Textbox(label="Prompt")
             with gr.Accordion(label="Settings",open=False):
@@ -877,7 +1197,9 @@ with gr.Blocks() as demo:
         with gr.Column():
             gr.HTML('<br><br><hr class="solid"><br><br>')
             gr.HTML('<h2 align="center">Step 7: Additional Task. Use Fine-Tuned Model </h2>')
-            
+            gr.HTML("""<p align="justify"></p>""")
+            gr.HTML("""<p align="justify"></p>""")
+            gr.HTML("""<p align="justify"></p>""")
             with gr.Row():
                 with gr.Column():
                     gr.HTML('<h2 align="center">Step 7.1: Training Model</h2>')
@@ -892,11 +1214,17 @@ with gr.Blocks() as demo:
                     text_model_select_result = gr.Textbox(label="Model Selection Status")
     with gr.Row():
         with gr.Column():
-            gr.HTML('<h2 align="center">Step 7.3: Make Inferences</h2>')
-            gr.HTML('<p> This task uses the selected Fine-Tuned Model for completing the prompt used in Step 3 for Generated Python Code</p>')
+            gr.HTML('<h2 align="center">Step 7.3: Make Inferences (Completion Task)</h2>')
+            gr.HTML("""<p align="justify">This task employs the selected Fine-Tuned Model to complete the same prompt that was used in STEP 3 
+            for generating Python Code. A "completion task" for a Language Model (LLM) typically involves generating additional text that 
+            logically or semantically continues from a given input text.</p>""")
+            gr.HTML("""<p align="justify">To expand the results, the user is required to press the "Make Completion" button. This action triggers 
+            the generation of more text based on the already generated text. This functionality consistently utilizes the last 2048 generated tokens, in accordance with the limitations for Fine-Tuned Models as imposed by OpenAI.</p>""")
+            
+            gr.HTML('<hr class="solid">')
             with gr.Row():
                 with gr.Column():
-                    gr.HTML('<p> Click on "Make Completion" any time you want for comleting the texts.</p>')
+                    gr.HTML('<p> Click on "Make Completion" for generating more text.</p>')
                     btn_model_completion = gr.Button("Make Completion")
                     btn_clear_completion = gr.Button("Clear")
                 with gr.Column():
