@@ -1005,7 +1005,7 @@ def start_training_model():
     # Starting Training Job
     try:
         run_string_output = subprocess.check_output(
-            ['openai','api','fine_tunes.create','-t','./additional_task/training_file_prepared.jsonl','--no_check_if_files_exist','-m','ada:ft-personal-2023-08-16-15-52-42','--n_epochs','10']
+            ['openai','api','fine_tunes.create','-t','./additional_task/training_file_prepared.jsonl','--no_check_if_files_exist','-m','davinci','--n_epochs','10']
         )
     except Exception as e:
         run_string_output = f"{e}"
@@ -1238,7 +1238,7 @@ with gr.Blocks() as demo:
             <p align="justify">   2) STEP 3 completed.</p>
             """)
             chatbot = gr.Chatbot(height=446, label='Chatbot') #just to fit the notebook
-            msg = gr.Textbox(label="Prompt")
+            msg = gr.Textbox(label="Prompt", value='show me the python code')
             with gr.Accordion(label="Settings",open=False):
                 system_context = gr.Textbox(label="System Context", lines=2, value="""A conversation between a user and an LLM-based AI python coding assistant. 
                 The assistant gives helpful, honest, and precise answers. The assistant must act as a programmer.""")
