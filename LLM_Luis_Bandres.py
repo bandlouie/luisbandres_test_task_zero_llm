@@ -968,23 +968,6 @@ def respond_wrapper(message, chat_history, instruction, temperature=0.0):
 # In[ ]:
 
 
-# Loading training data
-training_data = []
-for file_name in os.listdir("./additional_task/training_data/"):
-    if file_name.endswith(".pickle"):
-        with open(f'./additional_task/training_data/{file_name}', 'rb') as handle:
-            training_data.append(pickle.load(handle))
-
-training_data = [
-            {'prompt':d['prompt']+'\n\n###\n\n',
-             'completion':d['completion']+' END'
-            } for d in training_data
-        ]
-
-
-# In[ ]:
-
-
 # Slice tables to meet the limit of 2048 tokens per training sample
 def slice_md_input_table(_sample_md):
     try:
@@ -1014,16 +997,6 @@ def slice_md_template_table(_sample_md):
 # In[ ]:
 
 
-training_data = [
-            {'prompt':slice_md_template_table(slice_md_input_table(d['prompt'])),
-             'completion':d['completion']
-            } for d in training_data
-        ]
-
-
-# In[ ]:
-
-
 # Training Model
 run_string_output = ''
 def start_training_model():
@@ -1038,6 +1011,12 @@ def start_training_model():
         training_data = [
             {'prompt':d['prompt']+'\n\n###\n\n',
              'completion':d['completion']+' END'
+            } for d in training_data
+        ]
+        
+        training_data = [
+            {'prompt':slice_md_template_table(slice_md_input_table(d['prompt'])),
+             'completion':d['completion']
             } for d in training_data
         ]
 
