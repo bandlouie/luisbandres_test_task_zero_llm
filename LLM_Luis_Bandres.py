@@ -1150,7 +1150,6 @@ def fine_tuned_completion():
         print(f"{e}")
         return "You need to Transform Table First (Step 2)."
     try:
-        text_for_llm = [t for t in text_completion.split(' ') if len(t.replace(' ',''))>0]
         text_for_llm = ' '.join(text_for_llm.split()[-1500:])
         generated_completion = selected_model_llm(text_for_llm)
         text_completion = text_completion + '\n\n' + generated_completion
