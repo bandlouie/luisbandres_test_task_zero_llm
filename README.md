@@ -3,6 +3,11 @@
 ### August 18th, 2023
 ---
 
+### Features:
+   * **Language:** Python
+   * **Framework:** LangChain + OpenAi
+   * **Model:** gpt-3.5-turbo
+
 This App contains 7 Steps required to complete the Test Task:
 
 1. **Step 1: Load Data** - Users upload a template file and a new data file to the application.

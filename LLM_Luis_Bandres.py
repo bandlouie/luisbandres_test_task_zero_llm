@@ -19,7 +19,7 @@
 #    - **Step 7.2: Loading Model** - Allows users to select and load a specific fine-tuned model.
 #    - **Step 7.3: Make Inferences (Completion Task)** - Uses the loaded fine-tuned model to generate additional Python script based on the current prompt produced in Step 3.
 
-# In[1]:
+# In[ ]:
 
 
 import os
@@ -42,7 +42,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 
-# In[2]:
+# In[ ]:
 
 
 warnings.filterwarnings('ignore')
@@ -51,7 +51,7 @@ from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv()) # read local .env file
 
 
-# In[3]:
+# In[ ]:
 
 
 llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
@@ -86,7 +86,7 @@ llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.0)
 # }
 # ```
 
-# In[4]:
+# In[ ]:
 
 
 load_template_file_prompt = ChatPromptTemplate.from_template("""
@@ -140,7 +140,7 @@ If there is not a markdown table in the input return an empty JSON object. Other
 # }
 # ```
 
-# In[5]:
+# In[ ]:
 
 
 load_file_prompt = ChatPromptTemplate.from_template("""
@@ -197,7 +197,7 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 # 
 # ```
 
-# In[6]:
+# In[ ]:
 
 
 formating_header_prompt = ChatPromptTemplate.from_template("""
@@ -254,7 +254,7 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 # }
 # ```
 
-# In[7]:
+# In[ ]:
 
 
 table_proposal_prompt = ChatPromptTemplate.from_template("""
@@ -326,7 +326,7 @@ Only return a JSON Object, no more!! The only valid output is a JSON Object.
 # }
 # ```
 
-# In[8]:
+# In[ ]:
 
 
 formating_categories_prompt = ChatPromptTemplate.from_template("""
@@ -389,7 +389,7 @@ Return the updated  "simple_table" JSON object. Only return a JSON Object, no mo
 # }
 # 
 
-# In[9]:
+# In[ ]:
 
 
 categories_result_prompt = ChatPromptTemplate.from_template("""
@@ -446,7 +446,7 @@ Return only the JSON Object. Only return a JSON Object, no more!! The only valid
 # }
 # ```
 
-# In[10]:
+# In[ ]:
 
 
 formating_dates_prompt = ChatPromptTemplate.from_template("""
@@ -489,7 +489,7 @@ Return only the JSON Object. Only return a JSON Object, no more!! The only valid
 # ],
 # ```
 
-# In[11]:
+# In[ ]:
 
 
 formating_strings_prompt = ChatPromptTemplate.from_template("""
@@ -523,7 +523,7 @@ Return the updated "table_dates_result" JSON object. Only return a JSON Object, 
 
 # ### 2.9 STEP: Prompt Chain
 
-# In[12]:
+# In[ ]:
 
 
 chain_template_load = LLMChain(llm=llm, prompt=load_template_file_prompt, 
@@ -552,7 +552,7 @@ chain_strings_formatting = LLMChain(llm=llm, prompt=formating_strings_prompt,
                     )
 
 
-# In[13]:
+# In[ ]:
 
 
 mapping_chain = SequentialChain(
@@ -585,7 +585,7 @@ mapping_chain = SequentialChain(
 # This step is token-efficient: the system utilizes stored metadata from the previous Sequential Chain of LangChain. This step does not require history concatenation (hcat) for completion. As a result, it is token-efficient and does not demand extra memory resources of GPT.
 # 
 
-# In[14]:
+# In[ ]:
 
 
 def extract_data_attributes(analysis_chain):
@@ -612,7 +612,7 @@ def extract_data_attributes(analysis_chain):
 # However, there is a possibility that the script may contain an error. In such cases, there is no cause for concern, as in STEP 4, the user will have access to a chatbot that facilitates the editing of the code with the assistance of GPT.
 # 
 
-# In[15]:
+# In[ ]:
 
 
 def get_python_code_prompt():
@@ -673,12 +673,12 @@ def get_python_code_prompt():
     """
     except Exception as e:
         print(f"{e}")
-        return f"There was an error. Ask to the user to try again and inform him/her about the following error: {e}"
+        return f'Run again "STEP 3 Generate Python Code". Press button "Generate" in STEP 3.'
 
 
 # ## User Interface Functions
 
-# In[16]:
+# In[ ]:
 
 
 # Converting Markdown Tables to HTML Tables
@@ -688,7 +688,7 @@ def markdown_to_html(md_table_string):
 
 # ### STEP 1: Load Data
 
-# In[17]:
+# In[ ]:
 
 
 # Importing CSV Tables
@@ -720,7 +720,7 @@ def process_new_file(file):
 
 # ### STEP 2: Transformations using LLM
 
-# In[18]:
+# In[ ]:
 
 
 # Executing Chain for Transforming Input Table
@@ -758,7 +758,7 @@ Input File:
     
 
 
-# In[19]:
+# In[ ]:
 
 
 # Check if generated table is ok
@@ -770,7 +770,7 @@ def feedback_analysis(res):
 
 # ### STEP 3: Generate Python Code
 
-# In[20]:
+# In[ ]:
 
 
 # Generate Python Code
@@ -800,7 +800,7 @@ def generate_python_code():
     return python_text
 
 
-# In[21]:
+# In[ ]:
 
 
 # Check if python code is ok
@@ -830,7 +830,7 @@ def feedback_python_code(res):
 # ```
 # STEP 7 will utilize this data sample for fine-tuning models using the OpenAI Command Line Interface (CLI).
 
-# In[22]:
+# In[ ]:
 
 
 # Saving Training Data
@@ -850,7 +850,7 @@ def save_training_sample():
 
 # ### Step 5: Download Python Code
 
-# In[23]:
+# In[ ]:
 
 
 # Download Python Code
@@ -878,7 +878,7 @@ def download_python_code():
 # 2) STEP 3.
 # 
 
-# In[24]:
+# In[ ]:
 
 
 # Limiting memory for always using the last 4,000 tokens.
@@ -892,7 +892,7 @@ bot_conversation = ConversationChain(
 )
 
 
-# In[25]:
+# In[ ]:
 
 
 # Respoding function
@@ -915,7 +915,7 @@ def respond(message, chat_history, instruction, temperature=0.0):
         return message, chat_history
 
 
-# In[26]:
+# In[ ]:
 
 
 # Respoding wrapper for in-live modifications
@@ -965,7 +965,7 @@ def respond_wrapper(message, chat_history, instruction, temperature=0.0):
 # 
 # Each time the user executes STEP 4, a new data sample is stored for subsequent training.
 
-# In[27]:
+# In[ ]:
 
 
 # Loading training data
@@ -982,7 +982,7 @@ training_data = [
         ]
 
 
-# In[28]:
+# In[ ]:
 
 
 # Slice tables to meet the limit of 2048 tokens per training sample
@@ -1011,7 +1011,7 @@ def slice_md_template_table(_sample_md):
         return _sample_md
 
 
-# In[29]:
+# In[ ]:
 
 
 training_data = [
@@ -1021,7 +1021,7 @@ training_data = [
         ]
 
 
-# In[30]:
+# In[ ]:
 
 
 # Training Model
@@ -1074,49 +1074,57 @@ def start_training_model():
     return run_string_output
 
 
-# In[31]:
+# In[ ]:
 
 
 # Get training status
 def get_training_status():
     global run_string_output
     try:
-        train_job_id = run_string_output.split('openai api fine_tunes.follow -i ')[1].strip()
+        _models_list =  subprocess.check_output(['openai','api','fine_tunes.list']).decode('utf-8')
+        train_job_id = json.loads(_models_list)['data'][-1]['id']
         return subprocess.check_output(['openai','api','fine_tunes.follow','-i',train_job_id]).decode('utf-8')
     except Exception as e:
-        return f"{e}"
+        return f"[ERROR] {e}"
 
 
 # ### Step 7.2: Loading Model
 # In this step, a specific fine-tuned model is selected and loaded.
 
-# In[32]:
+# In[ ]:
 
 
 # Refresh models list
 models_list = ['Press Refresh Button']
 def get_models_list():
     global models_list
+    global models_dropdown
     try:
-        models_list =  subprocess.check_output(['openai','api','fine_tunes.list']).decode('utf-8')
+        models_list = subprocess.check_output(['openai','api','fine_tunes.list']).decode('utf-8')
 
         models_list = pd.DataFrame(json.loads(models_list)['data'])
+
+        models_list = models_list[(models_list.model=='davinci') & (models_list.status=='succeeded')]
+
         models_list = models_list[['id','updated_at','model','fine_tuned_model']]
 
         models_list = models_list.sort_values(by='updated_at',ascending=False)
 
         models_list = models_list['fine_tuned_model'].tolist()
-        
+
         models_list = [m for m in models_list if not (m is None)]
     except Exception as e:
         print(f"{e}")
-        models_list = ['Refresh the UI']
+        models_list = ['[ERROR] Contact admin.']
     
-    return gr.Dropdown.update(choices=models_list)
+    try:
+        return models_dropdown.update(choices=models_list)
+    except Exception as e:
+        print(f"[WARNING] {e}. It will be updated when UI is initialized.")
 _ = get_models_list()
 
 
-# In[33]:
+# In[ ]:
 
 
 # Loading selected model
@@ -1144,7 +1152,7 @@ def load_fine_tuned_model_bot(model_name):
 # This functionality consistently utilizes the last 2048 generated tokens, in accordance with the limitations for Fine-Tuned Models as imposed by OpenAI.
 # 
 
-# In[34]:
+# In[ ]:
 
 
 # Make completion
@@ -1169,7 +1177,7 @@ def fine_tuned_completion():
         return "You need to choose a model first!"
 
 
-# In[35]:
+# In[ ]:
 
 
 # Clear all generated text
@@ -1183,7 +1191,7 @@ def fine_tuned_clear_completion():
 # 
 # This application provides the user with a coherent interface for utilizing the LLM prompts.
 
-# In[36]:
+# In[ ]:
 
 
 # Gradio App
@@ -1194,6 +1202,11 @@ with gr.Blocks() as demo:
             <h1 align="center">Test Task Submission</h1>
             <h2 align="center">Luis Bandres</h2>
             <h3 align="center">August 18th, 2023</h3>
+            <br>
+            <h2 align="left">Features:</h2>
+            <li><strong>Language: </strong>Python</li>
+            <li><strong>Framework: </strong>LangChain + OpenAi</li>
+            <li><strong>Model</strong>gpt-3.5-turbo</li>
             <br>
             <h2 align="left">Steps:</h2>
             <ol>
@@ -1249,6 +1262,8 @@ with gr.Blocks() as demo:
             # Generating Code
             gr.HTML("""
             <h2 align="center">Step 3: Generate Python Code </h2>
+            <p align="justify">Pre-requisite:</p>
+            <p align="justify">STEP 2 completed.</p>
             <p align="justify">In this step, a Python script is generated. The objective of the generated script is to transform the input table into the 
             desired format, in accordance with the result of STEP 2: it will utilize the previously extracted metadata and the desired
             table appearance of the input, as obtained from STEP 2.</p>
@@ -1262,7 +1277,7 @@ with gr.Blocks() as demo:
             
             # Saving Training Data
             gr.HTML("""
-            <h2 align="center">Step 4: Saving Training Data </h2>'
+            <h2 align="center">Step 4: Saving Training Data </h2>
             <p align="justify">This button store the prompt for creating the python code and the generated script.</p>
             <p align="justify">This sample will be used for fine tuning a Davinci Model (gpt 3.5) in OpenAi (Step 7).</p>
             """)
@@ -1273,7 +1288,7 @@ with gr.Blocks() as demo:
             # Edit Code
             gr.HTML("""
             <h2 align="center">Step 5: Download Python Code </h2>
-            <h3 align="justify">Requisites:</h3>
+            <h3 align="justify">Pre-requisites:</h3>
             <p align="justify">   * Step 2 must be confirmed (checkbox).</p>
             <p align="justify">   * Step 3 must be confirmed (checkbox).</p>
             """)
@@ -1289,7 +1304,7 @@ with gr.Blocks() as demo:
             <h2 align="center">Step 6: Advanced Options </h2>
             <p align="justify">This feature provides a chatbot powered by OpenAI GPT 3.5, designed to assist users in editing the code with AI guidance. 
             Both the Table Analysis and the Generated Python Code have been loaded into this assistant for reference and further manipulation.</p>
-            <p align="justify">Prerequisites:</p>
+            <h3 align="justify">Pre-requisites:</h3>
             <p align="justify">   1) STEP 2 completed.</p>
             <p align="justify">   2) STEP 3 completed.</p>
             """)
@@ -1311,6 +1326,9 @@ with gr.Blocks() as demo:
             <hr class="solid">
             <h2 align="center">Step 7: Additional Task. Use Fine-Tuned Model </h2>
             <p align="justify">STEP 7 introduces a proposed approach based on Conditional Generation for crafting the Python script in STEP 3.</p>
+            <h3 align="justify">Pre-requisites:</h3>
+            <p align="justify">   1) STEP 2 completed.</p>
+            <p align="justify">   2) STEP 3 completed.</p>
             <p align="justify">This approach emphasizes the value of preserving the generated Python code and associated prompts as data, which can be 
             leveraged for potential retraining of the model. As such, STEP 7 outlines a methodology for retraining the model using the training samples collected 
             during STEP 4.</p>
@@ -1349,7 +1367,7 @@ with gr.Blocks() as demo:
                     <p align="justify">Each time the user executes STEP 4, a new data sample is stored for subsequent training.</p>
                     """)
                     btn_start_train = gr.Button("Start Training Model")
-                    btn_follow_train = gr.Button("Get Training Status")
+                    btn_follow_train = gr.Button("Get Training Status (Last Job)")
                     text_follow_train_result = gr.Textbox(label="Training Status")
                 with gr.Column():
                     gr.HTML('<h2 align="center">Step 7.2: Loading Model</h2>')
@@ -1400,7 +1418,7 @@ with gr.Blocks() as demo:
     btn_follow_train.click(get_training_status,inputs=None,outputs=text_follow_train_result)
     
     # Fine-Tuning: Selecting Models
-    btn_refresh_models.click(get_models_list,inputs=None,outputs=None)
+    btn_refresh_models.click(get_models_list,inputs=None,outputs=models_dropdown)
     btn_use_model.click(load_fine_tuned_model_bot,inputs=models_dropdown,outputs=text_model_select_result)
     
     # Fine-Tuning: Make completion
@@ -1408,7 +1426,7 @@ with gr.Blocks() as demo:
     btn_clear_completion.click(fine_tuned_clear_completion,inputs=None,outputs=text_model_completion)
 
 gr.close_all()
-demo.queue().launch(share=False, server_name="0.0.0.0", auth=("zero", "llm2023"), server_port=int(os.environ['GRADIO_SERVER_PORT']))
+demo.queue().launch(share=False, server_name="0.0.0.0", auth=(os.environ['GRADIO_USERNAME'], os.environ['GRADIO_PASSWORD']), server_port=int(os.environ['GRADIO_SERVER_PORT']))
 
 
 # ## END
