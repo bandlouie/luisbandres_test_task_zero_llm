@@ -999,7 +999,7 @@ def slice_md_template_table(_sample_md):
 
 # Training Model
 run_string_output = ''
-def start_training_model():
+def start_training_model(base_model:str):
     global run_string_output
     # Joining all training samples
     try:
@@ -1040,7 +1040,7 @@ def start_training_model():
     # Starting Training Job
     try:
         run_string_output = subprocess.check_output(
-            ['openai','api','fine_tunes.create','-t','./additional_task/training_file_prepared.jsonl','--no_check_if_files_exist','-m','ada','--n_epochs','10']
+            ['openai','api','fine_tunes.create','-t','./additional_task/training_file_prepared.jsonl','--no_check_if_files_exist','-m',base_model,'--n_epochs','10']
         )
     except Exception as e:
         run_string_output = f"{e}"
@@ -1157,6 +1157,12 @@ def fine_tuned_completion():
     except Exception as e:
         print(f"{e}")
         return "You need to choose a model first!"
+
+
+# In[ ]:
+
+
+'a b c d '.split()[-3:]
 
 
 # In[ ]:
@@ -1347,7 +1353,9 @@ with gr.Blocks() as demo:
                     }</code></p>
                     <p align="justify"><code>...</code></p>
                     <p align="justify">Each time the user executes STEP 4, a new data sample is stored for subsequent training.</p>
+                    <h2 align="center">WARNING: Training Models have costs! Please be careful.</h2>
                     """)
+                    base_model_dropdown = gr.Dropdown(['davinci','ada'],multiselect=False,label='Base Model')
                     btn_start_train = gr.Button("Start Training Model")
                     btn_follow_train = gr.Button("Get Training Status (Last Job)")
                     text_follow_train_result = gr.Textbox(label="Training Status")
@@ -1397,7 +1405,7 @@ with gr.Blocks() as demo:
     msg.submit(respond_wrapper, inputs=[msg, chatbot, system_context], outputs=[msg, chatbot])
     
     # Fine-Tuning: Start and Monitoring Training Jobs
-    btn_start_train.click(start_training_model,inputs=None,outputs=text_follow_train_result)
+    btn_start_train.click(start_training_model,inputs=base_model_dropdown,outputs=text_follow_train_result)
     btn_follow_train.click(get_training_status,inputs=None,outputs=text_follow_train_result)
     
     # Fine-Tuning: Selecting Models
