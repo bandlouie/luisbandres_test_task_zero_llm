@@ -968,6 +968,62 @@ def respond_wrapper(message, chat_history, instruction, temperature=0.0):
 # In[27]:
 
 
+# Loading training data
+training_data = []
+for file_name in os.listdir("./additional_task/training_data/"):
+    if file_name.endswith(".pickle"):
+        with open(f'./additional_task/training_data/{file_name}', 'rb') as handle:
+            training_data.append(pickle.load(handle))
+
+training_data = [
+            {'prompt':d['prompt']+'\n\n###\n\n',
+             'completion':d['completion']+' END'
+            } for d in training_data
+        ]
+
+
+# In[28]:
+
+
+# Slice tables to meet the limit of 2048 tokens per training sample
+def slice_md_input_table(_sample_md):
+    try:
+        md_input_table = _sample_md.split('<< INITIAL_TABLE >>')[2].split('<< TEMPLATE_TABLE >>')[0].split('```markdown')[1].split('```')[0]
+        md_output_table = md_input_table
+        md_output_table = md_output_table.split('\\n')
+        md_output_table = md_output_table[:5]
+        md_output_table = '\n'.join(md_output_table)+'\n'
+        return _sample_md.replace(md_input_table,md_output_table)
+    except Exception as e:
+        print(f"[WARNING] {e}")
+        return _sample_md
+
+def slice_md_template_table(_sample_md):
+    try:
+        md_input_table = _sample_md.split('<< TEMPLATE_TABLE >>')[2].split('<< HEADERS MAPPING >>')[0].split('```markdown')[1].split('```')[0]
+        md_output_table = md_input_table
+        md_output_table = md_output_table.split('\\n')
+        md_output_table = md_output_table[:5]
+        md_output_table = '\n'.join(md_output_table)+'\n'
+        return _sample_md.replace(md_input_table,md_output_table)
+    except Exception as e:
+        print(f"[WARNING] {e}")
+        return _sample_md
+
+
+# In[29]:
+
+
+training_data = [
+            {'prompt':slice_md_template_table(slice_md_input_table(d['prompt'])),
+             'completion':d['completion']
+            } for d in training_data
+        ]
+
+
+# In[30]:
+
+
 # Training Model
 run_string_output = ''
 def start_training_model():
@@ -1018,7 +1074,7 @@ def start_training_model():
     return run_string_output
 
 
-# In[28]:
+# In[31]:
 
 
 # Get training status
@@ -1034,7 +1090,7 @@ def get_training_status():
 # ### Step 7.2: Loading Model
 # In this step, a specific fine-tuned model is selected and loaded.
 
-# In[29]:
+# In[32]:
 
 
 # Refresh models list
@@ -1060,7 +1116,7 @@ def get_models_list():
 _ = get_models_list()
 
 
-# In[30]:
+# In[33]:
 
 
 # Loading selected model
@@ -1088,7 +1144,7 @@ def load_fine_tuned_model_bot(model_name):
 # This functionality consistently utilizes the last 2048 generated tokens, in accordance with the limitations for Fine-Tuned Models as imposed by OpenAI.
 # 
 
-# In[31]:
+# In[34]:
 
 
 # Make completion
@@ -1113,7 +1169,7 @@ def fine_tuned_completion():
         return "You need to choose a model first!"
 
 
-# In[32]:
+# In[35]:
 
 
 # Clear all generated text
@@ -1127,7 +1183,7 @@ def fine_tuned_clear_completion():
 # 
 # This application provides the user with a coherent interface for utilizing the LLM prompts.
 
-# In[33]:
+# In[36]:
 
 
 # Gradio App
@@ -1352,7 +1408,7 @@ with gr.Blocks() as demo:
     btn_clear_completion.click(fine_tuned_clear_completion,inputs=None,outputs=text_model_completion)
 
 gr.close_all()
-demo.queue().launch(share=False, server_name="0.0.0.0", server_port=int(os.environ['GRADIO_SERVER_PORT']))
+demo.queue().launch(share=False, server_name="0.0.0.0", auth=("zero", "llm2023"), server_port=int(os.environ['GRADIO_SERVER_PORT']))
 
 
 # ## END
