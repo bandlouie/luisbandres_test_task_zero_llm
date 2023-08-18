@@ -21,9 +21,14 @@ This App contains 7 Steps required to complete the Test Task:
    - **Step 7.2: Loading Model** - Allows users to select and load a specific fine-tuned model.
    - **Step 7.3: Make Inferences (Completion Task)** - Uses the loaded fine-tuned model to generate additional Python script based on the current prompt produced in Step 3.
 
-## Model Used:
+### Links:
 
-### `gpt-3.5-turbo`
+   * Web App: [Live Demo](http://104.236.6.67:5150/)
+
+   * Github Repository: [GitHub Repository](https://github.com/bandlouie/luisbandres_test_task_zero_llm)
+
+   * Youtube Demo: [Video Demo](https://www.youtube.com/watch?v=UR2lKA4vkyI)
+
 
 
 ## Step 1: Load Data

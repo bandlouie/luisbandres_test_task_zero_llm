@@ -6,6 +6,11 @@
 # ### August 18th, 2023
 # ---
 # 
+# ### Features:
+#    * **Language:** Python
+#    * **Framework:** LangChain + OpenAi
+#    * **Model:** gpt-3.5-turbo
+# 
 # This Jupyter Notebook describes the 7 Steps required to complete the Test Task:
 # 
 # 1. **Step 1: Load Data** - Users upload a template file and a new data file to the application.
@@ -18,6 +23,16 @@
 #    - **Step 7.1: Training Model** - Initiates the training of a custom fine-tuned model using the OpenAI CLI.
 #    - **Step 7.2: Loading Model** - Allows users to select and load a specific fine-tuned model.
 #    - **Step 7.3: Make Inferences (Completion Task)** - Uses the loaded fine-tuned model to generate additional Python script based on the current prompt produced in Step 3.
+#    
+# ### Links:
+# 
+#    * Web App: [Live Demo](http://104.236.6.67:5150/)
+# 
+#    * Github Repository: [GitHub Repository](https://github.com/bandlouie/luisbandres_test_task_zero_llm)
+# 
+#    * Youtube Demo: [Video Demo](https://www.youtube.com/watch?v=UR2lKA4vkyI)
+# 
+# 
 
 # In[ ]:
 
