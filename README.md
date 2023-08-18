@@ -16,14 +16,19 @@ This App contains 7 Steps required to complete the Test Task:
 4. **Step 4: Saving Training Data** - The application saves the current prompt used in Step 3 for creating the Python code and the generated script for potential future model training.
 5. **Step 5: Download Python Code** - Users can download the generated Python code after confirming the results of Steps 2 and 3.
 6. **Step 6: Advanced Options** - A chatbot, powered by OpenAI GPT-3.5, assists users in editing the code, with the table analysis and generated Python code pre-loaded into the assistant.
-7. **Step 7: Additional Task. Use Fine-Tuned Model** - This step outlines a methodology for retraining a Davinci Model (GPT-3.5) using OpenAI CLI, based on the training samples collected during Step 4.
+7. **Step 7: Additional Task. Use Fine-Tuned Model** - This step outlines a methodology for retraining a Davinci Model (GPT-3.5) or ADA model using OpenAI CLI, based on the training samples collected during Step 4.
    - **Step 7.1: Training Model** - Initiates the training of a custom fine-tuned model using the OpenAI CLI.
    - **Step 7.2: Loading Model** - Allows users to select and load a specific fine-tuned model.
    - **Step 7.3: Make Inferences (Completion Task)** - Uses the loaded fine-tuned model to generate additional Python script based on the current prompt produced in Step 3.
 
-## Model Used:
+### Links:
 
-### `gpt-3.5-turbo`
+   * Web App: [Live Demo](http://104.236.6.67:5150/)
+
+   * Github Repository: [GitHub Repository](https://github.com/bandlouie/luisbandres_test_task_zero_llm)
+
+   * Youtube Demo: [Video Demo](https://www.youtube.com/watch?v=UR2lKA4vkyI)
+
 
 
 ## Step 1: Load Data
